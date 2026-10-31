@@ -11,7 +11,9 @@ import { redirect } from 'next/navigation';
 import { BRAND } from '@iptv/shared';
 import { getDb, schema } from '@/lib/db';
 
-const devMailer = !process.env.AUTH_RESEND_KEY;
+// RESEND_API_KEY : variable injectée par l'intégration Resend de Vercel.
+const resendKey = process.env.AUTH_RESEND_KEY || process.env.RESEND_API_KEY;
+const devMailer = !resendKey;
 
 export const { handlers, auth, signIn, signOut } = NextAuth(async (): Promise<NextAuthConfig> => {
   const db = await getDb();
@@ -19,7 +21,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async (): Promise<Ne
     Resend({
       from: process.env.AUTH_EMAIL_FROM || `${BRAND.name} <onboarding@resend.dev>`,
       // Clé factice en dev : sendVerificationRequest est remplacé juste en dessous.
-      apiKey: process.env.AUTH_RESEND_KEY || 'dev',
+      apiKey: resendKey || 'dev',
       ...(devMailer && {
         async sendVerificationRequest({ identifier, url }) {
           console.log(`\n[auth] Lien de connexion pour ${identifier} :\n${url}\n`);
