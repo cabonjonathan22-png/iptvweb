@@ -17,22 +17,16 @@ Alternative pour le proxy : **Render** (`render.yaml`), inscription avec GitHub,
 
 ## État actuel
 
-Déjà fait : les projets Vercel `oria-web` et `oria-tv` existent (équipe `voyaj1`, plan Hobby, gratuit), avec leur dossier racine, Node 22 et les variables `NEXT_PUBLIC_APP_URL`, `TV_APP_ORIGINS`, `AUTH_SECRET`, `CREDENTIALS_ENCRYPTION_KEY`, `CRON_SECRET` et `VITE_API_URL`. Rien n'est encore déployé.
+En ligne, sur l'équipe Vercel `voyaj1` (plan Hobby, gratuit) :
+- **App TV** (à ouvrir sur la TV) : <https://oria-tv.vercel.app>
+- **Dashboard** : <https://oria-web-omega.vercel.app>
+- **Base** : Neon `oria`, plan Free, connectée à `oria-web`.
+
+Pour redéployer : `node scripts/deploy.mjs web`, `tv` ou `all`.
 
 ## Ce qu'il reste à faire de ton côté
 
-### 1. Base de données (2 min)
-Vercel exige une confirmation humaine pour accepter les conditions de Neon.
-Projet **oria-web** → **Storage** → **Create Database** → **Neon** → plan **Free** → connecter au projet, environnement **Production**. La variable `DATABASE_URL` est ajoutée automatiquement.
-
-### 2. Déployer (1 commande)
-À la racine du dépôt :
-```bash
-node scripts/deploy.mjs all
-```
-Les migrations s'appliquent pendant le build du dashboard. Adresses : <https://oria-web.vercel.app> (dashboard) et <https://oria-tv.vercel.app> (à ouvrir sur la TV).
-
-### 3. Connexion par e-mail (3 min)
+### 1. Connexion par e-mail (3 min)
 Inscription sur <https://resend.com> avec l'adresse qui servira à te connecter, **API Keys → Create**, puis :
 ```bash
 vercel link --yes --project oria-web --scope voyaj1
@@ -41,7 +35,7 @@ node scripts/deploy.mjs web
 ```
 Sans cette clé, aucun e-mail ne part : le lien de connexion n'apparaît que dans les logs Vercel.
 
-### 4. Proxy de flux sur Oracle Cloud (15 min)
+### 2. Proxy de flux sur Oracle Cloud (15 min)
 Sans lui, l'interface fonctionne mais les chaînes en `http://` ne se lisent pas.
 1. Inscription sur <https://signup.cloud.oracle.com> (offre « Always Free »).
 2. **Compute → Instances → Create instance** :
