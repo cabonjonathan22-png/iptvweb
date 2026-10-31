@@ -42,6 +42,20 @@ L'app TV se pilote entièrement au clavier : flèches, Entrée (OK), Échap ou R
 
 Les flags restent actifs pour la session. Exemple : `http://localhost:5173/?tv=1&slow=1`.
 
+### Faux serveur IPTV (dev)
+
+Pour tester sans vraie source :
+
+```bash
+node e2e/mock-iptv.mjs            # http://localhost:4010
+```
+
+Ajoutez ensuite `ALLOW_PRIVATE_SOURCES=1` dans `apps/web/.env.local`, puis dans le dashboard :
+- **Xtream** : serveur `localhost:4010`, identifiant `demo`, mot de passe `demo` (3 000 chaînes, 3 000 films, 300 séries ; taille via `MOCK_XTREAM_N`) ;
+- **M3U** : `http://localhost:4010/playlist.m3u?n=50000`.
+
+> En dev, PGlite tourne dans le même process que Next : pendant une grosse synchro, le dashboard peut ralentir. En production, la synchro tourne dans sa propre invocation avec un vrai Postgres.
+
 ### Tests
 
 ```bash
@@ -68,6 +82,7 @@ Toutes les variables sont documentées dans [.env.example](.env.example). Minimu
 | `AUTH_RESEND_KEY`, `AUTH_EMAIL_FROM` | web | Envoi des liens magiques |
 | `AUTH_GOOGLE_ID` / `_SECRET` | web | Optionnel : connexion Google |
 | `CREDENTIALS_ENCRYPTION_KEY` | web | Clé AES-256-GCM (32 octets, base64) des identifiants Xtream |
+| `CRON_SECRET` | web | Protège le cron de synchro et les relances internes des jobs |
 | `VITE_API_URL` | tv | URL du dashboard/API |
 
 ---
@@ -79,6 +94,12 @@ Toutes les variables sont documentées dans [.env.example](.env.example). Minimu
 3. **Projet « tv »** : importez le même dépôt, *Root Directory* = `apps/tv`, puis définissez `VITE_API_URL`. `apps/tv/vercel.json` configure le fallback SPA et met en cache immutable les assets hashés.
 4. **Domaines** : ajoutez `app.mondomaine.com` au projet web et `tv.mondomaine.com` au projet tv (enregistrement CNAME vers `cname.vercel-dns.com`). Mettez ensuite à jour `NEXT_PUBLIC_APP_URL`, `TV_APP_ORIGINS` et `VITE_API_URL`.
 5. **Google OAuth** (si utilisé) : URI de redirection `https://app.mondomaine.com/api/auth/callback/google`.
+
+**Synchronisation automatique** : `apps/web/vercel.json` déclare un Vercel Cron toutes les 12 h (`/api/cron/sync`). Il resynchronise les playlists et reprend les jobs interrompus.
+
+> Le plan Vercel **Hobby** limite les crons à une exécution par jour. En Hobby, le cron ne tournera donc qu'une fois par jour : passez en Pro pour le rythme de 12 h, ou appelez `/api/cron/sync` depuis un planificateur externe avec l'en-tête `Authorization: Bearer $CRON_SECRET`.
+
+La durée des fonctions est fixée à 300 s (`maxDuration`). Les grosses playlists sont découpées automatiquement en plusieurs invocations.
 
 Le proxy de flux (`apps/stream-proxy`) arrive à l'étape 3, avec son Dockerfile et sa procédure de déploiement sur VPS.
 
@@ -108,4 +129,22 @@ TV                                   API (app.*)                       Dashboard
 ```
 
 - Rate limiting : 6 codes/min/IP, 60 polls/min/IP, 10 saisies/10 min/utilisateur.
+
+## Fonctionnement de la synchronisation
+
+```
+Dashboard ─ ajout / « Synchroniser » ─▶ startSync() : job (génération N+1)
+                                        │
+            POST /api/sync/run ◀────────┘ (répond 202, travaille dans after())
+                 │  prend le bail du job, reprend la phase au curseur
+                 │  télécharge en flux → parse → upsert par lots de 1000
+                 │  checkpoint (curseur) après chaque lot
+                 ├─ temps écoulé ? → rend le bail, se relance (POST /api/sync/run)
+                 └─ fini → purge des lignes de génération < N, compteurs, statut « À jour »
+Cron 12 h ──▶ /api/cron/sync : playlists à rafraîchir + jobs abandonnés
+```
+
+- **Classification M3U** : chemins Xtream `/live/ /movie/ /series/`, puis extension vidéo + motif `S01E02`, puis mots-clés du `group-title`.
+- **Xtream** : les épisodes (`get_series_info`) et les fiches détaillées (`get_vod_info`) sont chargés à la demande par la TV (étapes 4 et 5).
+- **Personnalisation** : nom, ordre, masquage et verrouillage des catégories sont conservés d'une synchro à l'autre.
 - Révocation depuis le dashboard : le device est supprimé. Au prochain appel, la TV reçoit un 401 et revient à l'écran de pairing.

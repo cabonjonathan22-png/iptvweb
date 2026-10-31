@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { currentUser } from '@/auth';
+import { requireUser } from '@/auth';
 import { getDb } from '@/lib/db';
 import { LinkForm } from '@/components/LinkForm';
 import { ConfirmButton } from '@/components/ConfirmButton';
@@ -20,7 +20,7 @@ function ago(d: Date | null): string {
 
 export default async function DevicesPage({ searchParams }: { searchParams: Promise<{ linked?: string }> }) {
   const { linked } = await searchParams;
-  const user = (await currentUser())!;
+  const user = await requireUser();
   const db = await getDb();
   const [devices, playlists] = await Promise.all([
     db.query.devices.findMany({

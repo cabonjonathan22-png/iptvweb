@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useLayoutEffect, useState } from 'preact/hooks';
 import { useApp } from '../app-context';
 import { useKeyHandler } from '../nav/hooks';
 import { mapKey } from '../nav/keys';
@@ -22,7 +22,7 @@ export function KeyDebugScreen() {
   const [rows, setRows] = useState<Row[]>([]);
   const [lastBack, setLastBack] = useState(0);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let n = 0;
     const onKey = (e: KeyboardEvent) => {
       const m = mapKey(e);

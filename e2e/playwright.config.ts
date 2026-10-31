@@ -30,7 +30,14 @@ export default defineConfig({
         AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret',
         NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
         TV_APP_ORIGINS: 'http://localhost:5173',
+        // Le faux serveur IPTV est sur localhost.
+        ALLOW_PRIVATE_SOURCES: '1',
       },
+    },
+    {
+      command: 'node mock-iptv.mjs',
+      url: 'http://localhost:4010/player_api.php',
+      reuseExistingServer: false,
     },
     {
       command: 'pnpm --filter @iptv/tv dev',

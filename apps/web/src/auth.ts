@@ -7,6 +7,7 @@ import Google from 'next-auth/providers/google';
 import Resend from 'next-auth/providers/resend';
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { redirect } from 'next/navigation';
 import { BRAND } from '@iptv/shared';
 import { getDb, schema } from '@/lib/db';
 
@@ -54,4 +55,15 @@ export const googleEnabled = Boolean(process.env.AUTH_GOOGLE_ID && process.env.A
 export async function currentUser() {
   const session = await auth();
   return session?.user?.id ? { id: session.user.id, email: session.user.email ?? null } : null;
+}
+
+/**
+ * Utilisateur courant, sinon redirection vers /login. À utiliser dans chaque page
+ * protégée : Next rend layout et page en parallèle, le redirect du layout ne
+ * suffit pas à empêcher l'exécution de la page.
+ */
+export async function requireUser() {
+  const user = await currentUser();
+  if (!user) redirect('/login');
+  return user;
 }

@@ -2,3 +2,7 @@ export * from './brand';
 export * from './pairing';
 export * from './api-types';
 export * from './client';
+export * from './m3u';
+export * from './classify';
+export * from './json-stream';
+export * from './xtream';

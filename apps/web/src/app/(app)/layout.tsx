@@ -22,6 +22,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Logo />
           </Link>
           <nav className="flex items-center gap-1 text-sm">
+            <Link href="/playlists" className="rounded-lg px-3 py-2 text-fg hover:bg-surface-2">
+              Playlists
+            </Link>
             <Link href="/devices" className="rounded-lg px-3 py-2 text-fg hover:bg-surface-2">
               Appareils
             </Link>

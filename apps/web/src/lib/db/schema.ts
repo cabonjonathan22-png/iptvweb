@@ -15,7 +15,9 @@ import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  customType,
   index,
+  jsonb,
   integer,
   pgEnum,
   pgTable,
@@ -30,6 +32,13 @@ import type { AdapterAccountType } from 'next-auth/adapters';
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' });
 const createdAt = () => ts('created_at').notNull().defaultNow();
+/** Génération de synchro : tout ce qui n'a pas été revu par la dernière synchro est purgé. */
+const syncGen = () => integer('sync_gen').notNull().default(0);
+
+const bytea = customType<{ data: Buffer; driverData: Buffer | Uint8Array }>({
+  dataType: () => 'bytea',
+  fromDriver: (v) => (Buffer.isBuffer(v) ? v : Buffer.from(v)),
+});
 
 /* ------------------------------------------------------------------ Auth.js */
 
@@ -110,10 +119,62 @@ export const playlists = pgTable(
     liveCount: integer('live_count').notNull().default(0),
     vodCount: integer('vod_count').notNull().default(0),
     seriesCount: integer('series_count').notNull().default(0),
+    syncGen: syncGen(),
+    /** Infos compte Xtream (expiration, connexions max), EPG trouvé dans l'en-tête M3U… */
+    meta: jsonb('meta').$type<PlaylistMeta>().notNull().default({}),
     createdAt: createdAt(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
   (t) => [index('playlists_user_idx').on(t.userId)],
+);
+
+export interface PlaylistMeta {
+  /** Expiration de l'abonnement Xtream (ms epoch). */
+  expiresAt?: number | null;
+  maxConnections?: number | null;
+  /** URL EPG annoncée par l'en-tête #EXTM3U. */
+  headerEpgUrl?: string;
+  /** Nom du fichier uploadé. */
+  fileName?: string;
+}
+
+/** Fichier M3U uploadé, stocké compressé (gzip) : privé, sans service de stockage externe. */
+export const playlistFiles = pgTable('playlist_files', {
+  playlistId: uuid('playlist_id')
+    .primaryKey()
+    .references(() => playlists.id, { onDelete: 'cascade' }),
+  gzData: bytea('gz_data').notNull(),
+  size: integer('size').notNull(),
+  uploadedAt: ts('uploaded_at').notNull().defaultNow(),
+});
+
+export const syncStatus = pgEnum('sync_status', ['queued', 'running', 'done', 'error']);
+
+/**
+ * Job de synchronisation découpé en phases. Chaque invocation de fonction
+ * prend un « bail » (lease_until) pour être seule à travailler, avance le
+ * curseur par lots, puis rend la main avant la limite de durée Vercel.
+ */
+export const syncJobs = pgTable(
+  'sync_jobs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    playlistId: uuid('playlist_id')
+      .notNull()
+      .references(() => playlists.id, { onDelete: 'cascade' }),
+    gen: integer('gen').notNull(),
+    phase: text('phase').notNull(),
+    /** Nombre d'éléments déjà traités dans la phase courante. */
+    cursor: integer('cursor').notNull().default(0),
+    status: syncStatus('status').notNull().default('queued'),
+    leaseUntil: ts('lease_until'),
+    error: text('error'),
+    invocations: integer('invocations').notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+    finishedAt: ts('finished_at'),
+  },
+  (t) => [index('sync_jobs_playlist_idx').on(t.playlistId, t.createdAt)],
 );
 
 /* ------------------------------------------------------------------ Devices */
@@ -153,6 +214,7 @@ export const categories = pgTable(
     hidden: boolean('hidden').notNull().default(false),
     /** Catégorie protégée par le code PIN parental. */
     locked: boolean('locked').notNull().default(false),
+    syncGen: syncGen(),
   },
   (t) => [
     uniqueIndex('categories_ext_idx').on(t.playlistId, t.kind, t.externalId),
@@ -182,6 +244,7 @@ export const channels = pgTable(
     httpUserAgent: text('http_user_agent'),
     httpReferrer: text('http_referrer'),
     sortOrder: integer('sort_order').notNull().default(0),
+    syncGen: syncGen(),
   },
   (t) => [
     uniqueIndex('channels_ext_idx').on(t.playlistId, t.externalId),
@@ -216,6 +279,7 @@ export const vodItems = pgTable(
     tmdbId: integer('tmdb_id'),
     addedAt: ts('added_at'),
     sortOrder: integer('sort_order').notNull().default(0),
+    syncGen: syncGen(),
   },
   (t) => [
     uniqueIndex('vod_ext_idx').on(t.playlistId, t.externalId),
@@ -249,6 +313,7 @@ export const series = pgTable(
     /** Les épisodes Xtream sont chargés à la demande (get_series_info) puis mis en cache. */
     episodesFetchedAt: ts('episodes_fetched_at'),
     sortOrder: integer('sort_order').notNull().default(0),
+    syncGen: syncGen(),
   },
   (t) => [
     uniqueIndex('series_ext_idx').on(t.playlistId, t.externalId),
@@ -276,6 +341,7 @@ export const episodes = pgTable(
     durationSec: integer('duration_sec'),
     containerExt: text('container_ext'),
     streamUrl: text('stream_url'),
+    syncGen: syncGen(),
   },
   (t) => [
     uniqueIndex('episodes_ext_idx').on(t.seriesId, t.externalId),

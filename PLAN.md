@@ -42,8 +42,8 @@ iptvweb/
 |---|-------|--------|
 | 0 | Socle monorepo, schéma DB complet, auth, design system TV + dashboard | ✅ |
 | 1 | **Pairing** : code + QR, polling 3 s, device token, révocation, rate limiting, écran Debug touches, confirmation de sortie | ✅ |
-| 2 | Playlists : M3U (URL, fichier), Xtream (chiffré), parsing streaming en jobs, cron 12 h, statut | ⏳ |
-| 3 | Live TV + lecteur + `stream-proxy` (HLS/TS, zapping, overlay, résilience) | |
+| 2 | Playlists : M3U (URL, fichier), Xtream (chiffré), parsing streaming en jobs, cron 12 h, statut, catégories, aperçu | ✅ |
+| 3 | Live TV + lecteur + `stream-proxy` (HLS/TS, zapping, overlay, résilience), `/api/img`, lecteur de test du dashboard | ⏳ |
 | 4 | Films (grille virtualisée, fiche, reprise) | |
 | 5 | Séries (saisons, épisodes, épisode suivant) | |
 | 6 | EPG (XMLTV streaming, grille virtualisée, purge 24 h) | |
@@ -66,5 +66,14 @@ iptvweb/
 - **Sécurité du pairing** : la TV reçoit un secret avec le code ; le token n'est livré
   qu'au porteur du secret, une seule fois. Code et secret inconnus répondent de façon
   identique (pas d'oracle). Verrou anti double confirmation. Token stocké hashé (SHA-256).
+- **Synchro par jobs reprenables** (`apps/web/src/lib/sync/`) : phases (Xtream : catégories
+  puis flux, pour le live, la VOD et les séries ; M3U : une phase), curseur, bail exclusif.
+  Chaque invocation travaille ≤ 240 s puis se relance via `/api/sync/run` (`after()`).
+  Parsing en flux (M3U ligne à ligne, JSON Xtream objet par objet), écriture par lots de 1000.
+  Purge par numéro de génération ; personnalisations des catégories jamais écrasées.
+- **Fichiers M3U uploadés** : gzip côté navigateur (CompressionStream), stockés en `bytea`
+  dans Postgres. Privés, sans service Blob, ~40 Mo bruts sous la limite de 4,5 Mo de Vercel.
+- **SSRF** : toute URL fournie par l'utilisateur est refusée si elle résout vers une IP
+  privée/réservée, y compris après redirection.
 - **Identifiants Xtream jamais exposés** : les URL de lecture seront signées et
   résolues par le `stream-proxy` (étape 3), la TV ne voit jamais user/pass.
