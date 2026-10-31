@@ -4,7 +4,8 @@ import type { EpgGridRow, EpgProgram } from '@iptv/shared';
 import { useApp } from '../app-context';
 import { api, ApiError } from '../lib/api';
 import { hhmm } from '../lib/format';
-import { useFocusable } from '../nav/hooks';
+import { sendKey, useFocusable } from '../nav/hooks';
+import { ScrollArrows } from '../components/ScrollArrows';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Img } from '../components/Img';
 import { VodPlayer, type VodItem } from '../player/VodPlayer';
@@ -189,6 +190,7 @@ export function GuideScreen() {
       <div ref={ref} class="guide-grid" style={{ height: VISIBLE * ROW_H + 'px' }}>
         {nowX > 0 && nowX < TL_W && <div class="guide-now" style={{ left: CH_W + nowX + 'px' }} />}
         {rows}
+        <ScrollArrows dirs={['up', 'down', 'left', 'right']} onStep={sendKey} />
       </div>
     </div>
     </>

@@ -1,6 +1,7 @@
 import type { VNode } from 'preact';
 import { useFocusable } from '../nav/hooks';
 import { focus } from '../nav/focus';
+import { ScrollArrows } from './ScrollArrows';
 
 /**
  * Liste verticale virtualisée : seules les lignes visibles (+ marge) existent
@@ -78,6 +79,16 @@ export function VirtualList(p: Props) {
       <div class="vl-inner" style={{ transform: 'translateY(' + -scroll + 'px)', WebkitTransform: 'translateY(' + -scroll + 'px)' }}>
         {rows}
       </div>
+      {p.count * rh > p.height && (
+        <ScrollArrows
+          dirs={['up', 'down']}
+          onStep={(d) => {
+            const page = Math.max(1, Math.floor(p.height / rh) - 1);
+            focus.focus(p.id);
+            p.onIndex(Math.max(0, Math.min(p.count - 1, p.index + (d === 'down' ? page : -page))));
+          }}
+        />
+      )}
     </div>
   );
 }

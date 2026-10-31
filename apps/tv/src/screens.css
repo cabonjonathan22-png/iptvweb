@@ -721,12 +721,12 @@
   margin-left: 8px;
 }
 .pc-bar {
+  display: none;
   position: absolute;
   left: var(--safe-x);
   right: var(--safe-x);
   bottom: 300px;
   z-index: 60;
-  display: flex;
   justify-content: center;
   opacity: 0;
   pointer-events: none;
@@ -759,4 +759,63 @@
 .vod-seek .pbar {
   height: 8px;
   margin: 0 20px;
+}
+
+/* Commandes au pointeur : PC, et navigateurs de TV où la télécommande déplace une souris. */
+.pointer-active .pc-bar,
+.device-desktop .pc-bar {
+  display: flex;
+}
+.vl,
+.vgrid,
+.row-track,
+.guide-grid {
+  position: relative;
+}
+.scroll-arrow {
+  display: none;
+  position: absolute;
+  z-index: 40;
+  width: 104px;
+  height: 104px;
+  border-radius: 52px;
+  background: rgba(11, 11, 16, 0.88);
+  color: var(--fg);
+  font-size: 40px;
+  line-height: 104px;
+  text-align: center;
+  cursor: pointer;
+}
+.pointer-active .scroll-arrow,
+.device-desktop .scroll-arrow {
+  display: block;
+}
+.scroll-arrow:hover {
+  background: var(--accent);
+}
+.scroll-up {
+  top: 12px;
+  right: 12px;
+}
+.scroll-down {
+  bottom: 12px;
+  right: 12px;
+}
+.scroll-left {
+  top: 50%;
+  left: 12px;
+  margin-top: -52px;
+}
+.scroll-right {
+  top: 50%;
+  right: 12px;
+  margin-top: -52px;
+}
+.home > .scroll-up {
+  top: 170px;
+  right: 40px;
+}
+.home > .scroll-down {
+  bottom: 40px;
+  right: 40px;
 }

@@ -6,6 +6,8 @@ import { api, API_URL } from '../lib/api';
 import { Button } from '../components/Button';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Row } from '../components/Row';
+import { ScrollArrows } from '../components/ScrollArrows';
+import { sendKey } from '../nav/hooks';
 import { ChannelTile, PosterTile, WideTile, progressRatio } from '../components/Cards';
 
 /** Hauteurs (base 1080p) des rangées, pour le défilement vertical. */
@@ -131,6 +133,7 @@ export function HomeScreen() {
   return (
     <div class="screen home">
       <ScreenHeader title="Accueil" backHint="Quitter" />
+      <ScrollArrows dirs={['up', 'down']} onStep={sendKey} />
       <div class="home-scroll" style={{ transform: 'translateY(' + translate + 'px)', WebkitTransform: 'translateY(' + translate + 'px)' }}>
         <p class="eyebrow home-eyebrow">
           {me ? me.device.name : ''}

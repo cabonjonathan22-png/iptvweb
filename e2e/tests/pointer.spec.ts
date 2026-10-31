@@ -70,4 +70,45 @@ test('PC : molette, clic, boutons du lecteur', async ({ browser }) => {
   // Une seule cran : pas de défilement qui continue après coup.
   await tv.waitForTimeout(600);
   await expect(tv.locator('.col-channels .is-focused .ch-name')).toHaveText('Chaîne ' + (start + 2));
+
+  // Navigateur de TV où la télécommande déplace une souris : tout passe par le pointeur, sans touche.
+  const hisense = await tvCtx.newPage();
+  await hisense.goto(TV);
+  await expect(hisense.locator('.home-menu')).toBeVisible({ timeout: 15_000 });
+  await expect(hisense.locator('.scroll-arrow').first()).toBeHidden();
+  await hisense.locator('.home-menu').getByText('Films').hover();
+  await expect(hisense.locator('.scroll-down').first()).toBeVisible();
+  await hisense.locator('.home-menu').getByText('Films').click();
+  await expect(hisense.locator('.crumb')).toHaveText('Films');
+  const grid = hisense.locator('.vgrid');
+  await expect(grid.locator('.grid-cell').first()).toBeVisible({ timeout: 15_000 });
+  const before = await grid.locator('.vgrid-inner').getAttribute('style');
+  await grid.locator('.scroll-down').click();
+  await expect.poll(() => grid.locator('.vgrid-inner').getAttribute('style')).not.toBe(before);
+  // Le clic sur la flèche n'ouvre pas de film.
+  await expect(hisense.locator('.crumb')).toHaveText('Films');
+
+  // Catégories : idem.
+  const cats = hisense.locator('.vl').first();
+  if (await cats.locator('.scroll-down').count()) {
+    const b = await cats.locator('.vl-inner').getAttribute('style');
+    await cats.locator('.scroll-down').click();
+    await expect.poll(() => cats.locator('.vl-inner').getAttribute('style')).not.toBe(b);
+  }
+  // Le Retour de l'en-tête reste cliquable.
+  await hisense.locator('.hint-back').click();
+  await expect(hisense.locator('.crumb')).toHaveText('Accueil');
+
+  // Direct au pointeur : la liste descend, et le lecteur a ses boutons.
+  await hisense.locator('.home-menu').getByText('TV en direct').click();
+  const list = hisense.locator('.col-channels .vl');
+  await expect(list.locator('.ch-name').first()).toBeVisible({ timeout: 15_000 });
+  const b2 = await list.locator('.vl-inner').getAttribute('style');
+  await list.locator('.scroll-down').click();
+  await expect.poll(() => list.locator('.vl-inner').getAttribute('style')).not.toBe(b2);
+  await list.locator('.vl-row.is-focused').click();
+  await hisense.mouse.move(300, 300);
+  await expect(hisense.getByRole('button', { name: '← Retour' })).toBeVisible();
+  await hisense.getByRole('button', { name: '← Retour' }).click();
+  await expect(hisense.locator('.player-ui')).toHaveCount(0);
 });

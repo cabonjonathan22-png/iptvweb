@@ -9,7 +9,6 @@ import { ProgressBar } from '../components/Cards';
 import { epgFor, onEpgChange, progressOf } from '../lib/epg-store';
 import { hhmm } from '../lib/format';
 import { PointerControls, type PointerItem } from '../components/PointerControls';
-import { isPointerDevice } from '../lib/device';
 import { api } from '../lib/api';
 import { canCast, canPip, castMedia, togglePip } from './cast';
 import type { PlayResponse } from '@iptv/shared';
@@ -137,7 +136,7 @@ export function FullPlayer({ channel, notice, favorite, onFavorite, onZap, onNum
 
   return (
     <FocusLayer name="player">
-      <div class="player-ui" onClick={isPointerDevice ? show : undefined} onMouseMove={isPointerDevice ? show : undefined}>
+      <div class="player-ui" onClick={show} onMouseMove={show}>
         {loading && <div class="spinner spinner-corner" aria-label="Chargement" />}
         {loading && p.reconnect && (
           <div class="osd-reconnect">

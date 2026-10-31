@@ -1,6 +1,7 @@
 import type { VNode } from 'preact';
 import { useState } from 'preact/hooks';
 import { useFocusable } from '../nav/hooks';
+import { ScrollArrows } from './ScrollArrows';
 import { focus } from '../nav/focus';
 
 /**
@@ -73,6 +74,15 @@ export function Row(p: Props) {
         <div class="row-inner" style={{ transform: 'translateX(' + -scroll + 'px)', WebkitTransform: 'translateX(' + -scroll + 'px)' }}>
           {items}
         </div>
+        {p.count > perView && (
+          <ScrollArrows
+            dirs={['left', 'right']}
+            onStep={(d) => {
+              focus.focus(p.id);
+              setIndex(Math.max(0, Math.min(p.count - 1, index + (d === 'right' ? perView - 1 : 1 - perView))));
+            }}
+          />
+        )}
       </div>
     </section>
   );

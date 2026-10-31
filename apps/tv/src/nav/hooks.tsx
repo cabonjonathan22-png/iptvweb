@@ -45,14 +45,18 @@ let hoverPausedUntil = 0;
 document.addEventListener(
   'mousemove',
   (e) => {
-    pointerMoved = pointerX !== null && Math.abs(e.clientX - pointerX) + Math.abs(e.clientY - pointerY) >= HOVER_MIN_MOVE;
-    if (pointerX === null || pointerMoved) {
+    const first = pointerX === null;
+    pointerMoved = !first && Math.abs(e.clientX - pointerX!) + Math.abs(e.clientY - pointerY) >= HOVER_MIN_MOVE;
+    if (first || pointerMoved) {
       pointerX = e.clientX;
       pointerY = e.clientY;
+      document.documentElement.classList.add('pointer-active');
     }
   },
   true,
 );
+// Une vraie touche : la télécommande pilote, les commandes à l'écran s'effacent.
+document.addEventListener('keydown', () => document.documentElement.classList.remove('pointer-active'), true);
 
 export interface UseFocusableOpts extends FocusCallbacks {
   /** Id stable (requis pour la mémorisation du focus entre deux visites d'écran). */

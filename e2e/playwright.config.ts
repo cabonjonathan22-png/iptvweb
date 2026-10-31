@@ -14,7 +14,7 @@ export default defineConfig({
   timeout: 60_000,
   workers: 1,
   use: {
-    channel: process.env.CI ? undefined : 'chrome',
+    channel: process.env.CI ? undefined : process.env.PW_CHANNEL || 'chrome',
     // Fenêtre type navigateur TV.
     viewport: { width: 1280, height: 720 },
   },

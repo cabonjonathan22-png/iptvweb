@@ -1,6 +1,7 @@
 import type { VNode } from 'preact';
 import { useFocusable } from '../nav/hooks';
 import { focus } from '../nav/focus';
+import { ScrollArrows } from './ScrollArrows';
 
 /**
  * Grille virtualisée (jaquettes) : seules les rangées visibles sont rendues.
@@ -87,6 +88,16 @@ export function VirtualGrid(p: Props) {
       <div class="vgrid-inner" style={{ transform: 'translateY(' + -scroll + 'px)', WebkitTransform: 'translateY(' + -scroll + 'px)' }}>
         {cells}
       </div>
+      {rows * p.cellH > p.height && (
+        <ScrollArrows
+          dirs={['up', 'down']}
+          onStep={(d) => {
+            const page = Math.max(1, Math.floor(p.height / p.cellH)) * p.columns;
+            focus.focus(p.id);
+            p.onIndex(Math.max(0, Math.min(p.count - 1, p.index + (d === 'down' ? page : -page))));
+          }}
+        />
+      )}
     </div>
   );
 }

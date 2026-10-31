@@ -9,7 +9,6 @@ import { player } from './engine';
 import { usePlayer } from './usePlayer';
 import { castItems, TracksDialog } from './FullPlayer';
 import { PointerControls } from '../components/PointerControls';
-import { isPointerDevice } from '../lib/device';
 
 const OVERLAY_MS = 4000;
 const SAVE_EVERY_MS = 10_000;
@@ -182,7 +181,7 @@ export function VodPlayer({ item, next, onPlayNext, onExit }: Props) {
 
   return (
     <FocusLayer name="vod-player">
-      <div class="player-ui" onClick={isPointerDevice ? show : undefined} onMouseMove={isPointerDevice ? show : undefined}>
+      <div class="player-ui" onClick={show} onMouseMove={show}>
         {loading && <div class="spinner spinner-corner" aria-label="Chargement" />}
         {loading && p.reconnect && <div class="osd-reconnect">Reconnexion ({p.reconnect.attempt}/{p.reconnect.max})…</div>}
 
