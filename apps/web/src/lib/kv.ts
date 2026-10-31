@@ -1,8 +1,12 @@
 /**
- * Petit KV avec TTL : Upstash Redis en production, Map en mémoire en dev
- * (suffisant pour un unique process `next dev`, pas pour du multi-instance).
+ * Petit KV avec TTL (codes de pairing, verrous).
+ *  - Upstash Redis si configuré (UPSTASH_REDIS_REST_* ou KV_REST_API_* injectées par Vercel) ;
+ *  - sinon Postgres (table kv_store) : aucun service supplémentaire à créer ;
+ *  - en dev sans base distante : Map en mémoire (un seul process `next dev`).
  */
 import { Redis } from '@upstash/redis';
+import { and, eq, gt, lt, sql } from 'drizzle-orm';
+import { getDb, schema } from './db';
 
 export interface Kv {
   get<T>(key: string): Promise<T | null>;
@@ -12,13 +16,19 @@ export interface Kv {
   ttl(key: string): Promise<number>;
 }
 
+function upstashEnv(): { url: string; token: string } | null {
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  return url && token ? { url, token } : null;
+}
+
 export function hasUpstash(): boolean {
-  return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+  return upstashEnv() !== null;
 }
 
 let redis: Redis | null = null;
 export function getRedis(): Redis {
-  if (!redis) redis = Redis.fromEnv();
+  if (!redis) redis = new Redis(upstashEnv()!);
   return redis;
 }
 
@@ -34,6 +44,44 @@ function upstashKv(): Kv {
       await r.del(key);
     },
     ttl: (key) => r.ttl(key),
+  };
+}
+
+function postgresKv(): Kv {
+  const k = schema.kvStore;
+  return {
+    async get<T>(key: string) {
+      const db = await getDb();
+      const [row] = await db
+        .select({ value: k.value })
+        .from(k)
+        .where(and(eq(k.key, key), gt(k.expiresAt, new Date())));
+      return row ? (row.value as T) : null;
+    },
+    async set(key, value, { ex, nx }) {
+      const db = await getDb();
+      const expiresAt = new Date(Date.now() + ex * 1000);
+      // NX : on ne remplace qu'une entrée expirée.
+      const rows = await db
+        .insert(k)
+        .values({ key, value: value as never, expiresAt })
+        .onConflictDoUpdate({
+          target: k.key,
+          set: { value: sql`excluded.value`, expiresAt: sql`excluded.expires_at` },
+          ...(nx ? { setWhere: lt(k.expiresAt, new Date()) } : {}),
+        })
+        .returning({ key: k.key });
+      return rows.length > 0;
+    },
+    async del(key) {
+      const db = await getDb();
+      await db.delete(k).where(eq(k.key, key));
+    },
+    async ttl(key) {
+      const db = await getDb();
+      const [row] = await db.select({ e: k.expiresAt }).from(k).where(and(eq(k.key, key), gt(k.expiresAt, new Date())));
+      return row ? Math.ceil((row.e.getTime() - Date.now()) / 1000) : -2;
+    },
   };
 }
 
@@ -70,12 +118,26 @@ function memoryKv(): Kv {
   };
 }
 
+/** Backend persistant partagé entre instances (Upstash ou Postgres) ? */
+export function sharedBackend(): 'upstash' | 'postgres' | 'memory' {
+  if (process.env.KV_BACKEND === 'postgres') return 'postgres';
+  if (hasUpstash()) return 'upstash';
+  if (process.env.DATABASE_URL) return 'postgres';
+  return 'memory';
+}
+
 let kv: Kv | null = null;
 export function getKv(): Kv {
   if (!kv) {
-    if (hasUpstash()) kv = upstashKv();
-    else if (process.env.VERCEL) throw new Error('UPSTASH_REDIS_REST_URL / _TOKEN manquants');
-    else kv = memoryKv();
+    const b = sharedBackend();
+    kv = b === 'upstash' ? upstashKv() : b === 'postgres' ? postgresKv() : memoryKv();
   }
   return kv;
+}
+
+/** Purge des entrées expirées (appelée par le cron). */
+export async function purgeExpiredKv() {
+  if (sharedBackend() !== 'postgres') return;
+  const db = await getDb();
+  await db.delete(schema.kvStore).where(lt(schema.kvStore.expiresAt, new Date()));
 }

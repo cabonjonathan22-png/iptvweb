@@ -24,8 +24,8 @@ import { isLocalHostname, isPrivateIp } from '../../packages/shared/src/net-guar
 
 const PORT = Number(process.env.PORT || 8080);
 const SECRET = process.env.STREAM_PROXY_SECRET || '';
-/** URL publique du proxy (pour réécrire les playlists). Déduite de la requête si absente. */
-const PUBLIC_URL = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
+/** URL publique du proxy (pour réécrire les playlists). Render la fournit ; sinon déduite de la requête. */
+const PUBLIC_URL = (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
 const ALLOW_PRIVATE = process.env.ALLOW_PRIVATE_UPSTREAMS === '1';
 const DEFAULT_UA = 'VLC/3.0.21 LibVLC/3.0.21';
 const CHILD_TTL_SEC = 6 * 3600;
@@ -140,7 +140,9 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
     if (buf.length > MAX_PLAYLIST_BYTES) return send(res, 502, 'playlist too large');
     const text = buf.toString('utf8');
     if (!text.trimStart().startsWith('#EXTM3U')) return send(res, 502, 'invalid playlist');
-    const base = PUBLIC_URL || 'http://' + (req.headers.host || 'localhost:' + PORT);
+    // Derrière Caddy / Render, la requête arrive en http : on respecte X-Forwarded-Proto.
+    const proto = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0]!.trim();
+    const base = PUBLIC_URL || proto + '://' + (req.headers.host || 'localhost:' + PORT);
     const exp = Math.floor(Date.now() / 1000) + CHILD_TTL_SEC;
     const body = rewriteHlsPlaylist(text, finalUrl, (u) =>
       proxiedUrl(base, { u, ua: target.ua, ref: target.ref, exp }, SECRET),

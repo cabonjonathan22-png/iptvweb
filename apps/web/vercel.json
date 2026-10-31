@@ -2,5 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "pnpm db:migrate && pnpm build",
-  "crons": [{ "path": "/api/cron/sync", "schedule": "0 */12 * * *" }]
+  "crons": [{ "path": "/api/cron/sync", "schedule": "0 4 * * *" }]
 }

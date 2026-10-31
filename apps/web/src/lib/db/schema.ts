@@ -180,6 +180,21 @@ export const syncJobs = pgTable(
   (t) => [index('sync_jobs_playlist_idx').on(t.playlistId, t.createdAt)],
 );
 
+/**
+ * Petit stockage clé-valeur avec expiration (codes de pairing, rate limiting)
+ * quand Upstash Redis n'est pas configuré : une base Postgres suffit, donc un
+ * service gratuit de moins à créer.
+ */
+export const kvStore = pgTable(
+  'kv_store',
+  {
+    key: text('key').primaryKey(),
+    value: jsonb('value').notNull(),
+    expiresAt: ts('expires_at').notNull(),
+  },
+  (t) => [index('kv_store_expires_idx').on(t.expiresAt)],
+);
+
 /* ------------------------------------------------------------------ Devices */
 
 export const devices = pgTable(

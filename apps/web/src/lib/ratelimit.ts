@@ -1,5 +1,7 @@
 import { Ratelimit } from '@upstash/ratelimit';
-import { getRedis, hasUpstash } from './kv';
+import { sql } from 'drizzle-orm';
+import { getDb, schema } from './db';
+import { getRedis, sharedBackend } from './kv';
 
 type Window = `${number} s` | `${number} m`;
 
@@ -29,18 +31,44 @@ function memoryLimiter(prefix: string, max: number, window: Window): Limiter {
   };
 }
 
+/**
+ * Fenêtre fixe dans Postgres (table kv_store) : un seul UPSERT atomique par
+ * appel, compteur remis à 1 quand la fenêtre précédente a expiré.
+ */
+function postgresLimiter(prefix: string, max: number, window: Window): Limiter {
+  const k = schema.kvStore;
+  return {
+    async limit(id) {
+      const db = await getDb();
+      const reset = new Date(Date.now() + toMs(window));
+      const [row] = await db
+        .insert(k)
+        .values({ key: 'rl:' + prefix + ':' + id, value: 1 as never, expiresAt: reset })
+        .onConflictDoUpdate({
+          target: k.key,
+          set: {
+            value: sql`case when ${k.expiresAt} <= now() then '1'::jsonb else to_jsonb((${k.value} #>> '{}')::int + 1) end`,
+            expiresAt: sql`case when ${k.expiresAt} <= now() then excluded.expires_at else ${k.expiresAt} end`,
+          },
+        })
+        .returning({ n: k.value, reset: k.expiresAt });
+      return { success: Number(row!.n) <= max, reset: row!.reset.getTime() };
+    },
+  };
+}
+
 const cache = new Map<string, Limiter>();
 
 export function limiter(prefix: string, max: number, window: Window): Limiter {
   let l = cache.get(prefix);
   if (!l) {
-    l = hasUpstash()
-      ? new Ratelimit({
-          redis: getRedis(),
-          limiter: Ratelimit.slidingWindow(max, window),
-          prefix: 'rl:' + prefix,
-        })
-      : memoryLimiter(prefix, max, window);
+    const b = sharedBackend();
+    l =
+      b === 'upstash'
+        ? new Ratelimit({ redis: getRedis(), limiter: Ratelimit.slidingWindow(max, window), prefix: 'rl:' + prefix })
+        : b === 'postgres'
+          ? postgresLimiter(prefix, max, window)
+          : memoryLimiter(prefix, max, window);
     cache.set(prefix, l);
   }
   return l;

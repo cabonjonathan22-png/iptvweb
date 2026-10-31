@@ -11,7 +11,7 @@ Lecteur IPTV web pilotable à la télécommande, pensé d'abord pour les Hisense
 | `apps/stream-proxy` | Proxy de flux | Node + Docker, sur un VPS | `stream.mondomaine.com` |
 | `packages/shared` | Types, client API, parseurs M3U / Xtream / XMLTV | TypeScript | — |
 
-L'architecture et les choix techniques sont détaillés dans [PLAN.md](PLAN.md).
+L'architecture et les choix techniques sont détaillés dans [PLAN.md](PLAN.md). **Déploiement 100 % gratuit pas à pas : [DEPLOIEMENT-GRATUIT.md](DEPLOIEMENT-GRATUIT.md).**
 
 ## Fonctionnalités
 
@@ -117,7 +117,7 @@ Toutes les variables sont documentées dans [.env.example](.env.example). Minimu
 | `NEXT_PUBLIC_APP_URL` | web | URL publique du dashboard (QR code, liens) |
 | `TV_APP_ORIGINS` | web | Origine(s) de l'app TV autorisées en CORS |
 | `DATABASE_URL` | web | Postgres (URL pooled Neon) |
-| `UPSTASH_REDIS_REST_URL` / `_TOKEN` | web | Codes de pairing + rate limiting |
+| `UPSTASH_REDIS_REST_URL` / `_TOKEN` | web | Optionnel : sinon codes de pairing et rate limiting dans Postgres |
 | `AUTH_SECRET` | web | Secret Auth.js |
 | `AUTH_RESEND_KEY`, `AUTH_EMAIL_FROM` | web | Envoi des liens magiques |
 | `AUTH_GOOGLE_ID` / `_SECRET` | web | Optionnel : connexion Google |
