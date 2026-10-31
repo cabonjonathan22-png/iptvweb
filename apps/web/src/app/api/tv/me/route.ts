@@ -1,11 +1,14 @@
+import { after } from 'next/server';
 import type { TvMeResponse } from '@iptv/shared';
 import { authenticateDevice } from '@/lib/device-auth';
 import { getDb } from '@/lib/db';
 import { apiError, json } from '@/lib/http';
+import { wakeStreamProxy } from '@/lib/playback';
 
 export async function GET(req: Request) {
   const device = await authenticateDevice(req);
   if (!device) return apiError(401, 'unauthorized');
+  after(wakeStreamProxy);
 
   const db = await getDb();
   const [user, playlist] = await Promise.all([

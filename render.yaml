@@ -1,11 +1,11 @@
 # Alternative gratuite au VPS pour le proxy de flux : Render (Blueprint).
-# Dashboard Render -> New -> Blueprint -> ce dépôt. Renseigner STREAM_PROXY_SECRET
-# (même valeur que dans Vercel). URL publique : https://<nom>.onrender.com
+# Dashboard Render -> New -> Blueprint -> ce dépôt. Render génère STREAM_PROXY_SECRET :
+# copier sa valeur dans Vercel (même secret des deux côtés).
+# URL publique : https://<nom>.onrender.com
 #
-# Limites du plan gratuit : mise en veille après 15 min sans requête (premier
-# lancement de chaîne ~30-60 s), ~100 Go de trafic sortant par mois (environ
-# 40 h de HD). Pour un usage quotidien, préférer Oracle Cloud Always Free
-# (apps/stream-proxy/deploy/setup.sh).
+# Limites du plan gratuit : mise en veille après 15 min sans requête (environ
+# 1 min pour repartir) et trafic sortant limité ; sans moyen de paiement, un
+# dépassement suspend le service jusqu'au mois suivant.
 services:
   - type: web
     name: oria-stream-proxy
@@ -17,4 +17,4 @@ services:
     autoDeploy: true
     envVars:
       - key: STREAM_PROXY_SECRET
-        sync: false
+        generateValue: true

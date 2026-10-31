@@ -38,6 +38,16 @@ function proxyConfig() {
   return url && secret ? { url, secret } : null;
 }
 
+/**
+ * Réveille le proxy s'il dort (hébergement gratuit : veille après 15 min).
+ * Appelé à l'ouverture de la TV pour que la première chaîne démarre plus vite.
+ */
+export async function wakeStreamProxy(): Promise<void> {
+  const url = process.env.STREAM_PROXY_URL;
+  if (!url) return;
+  await fetch(url.replace(/\/$/, '') + '/health', { signal: AbortSignal.timeout(70_000) }).catch(() => undefined);
+}
+
 export type PlaybackError = 'not_found' | 'no_source' | 'locked';
 
 export async function resolvePlayback(
