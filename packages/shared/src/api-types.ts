@@ -63,6 +63,8 @@ export interface PlayResponse {
   live: boolean;
   /** true si la lecture passe par le proxy de flux. */
   proxied: boolean;
+  /** Conteneur converti à la volée par le proxy (MKV…) : racine pour la position et l'audio. */
+  remux?: { base: string };
   /** Avertissement non bloquant (ex. flux http sur page https sans proxy configuré). */
   warning?: 'mixed_content';
 }

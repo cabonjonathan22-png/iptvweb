@@ -34,6 +34,10 @@ L'architecture et les choix techniques sont détaillés dans [PLAN.md](PLAN.md).
 
 **Filtre de langues** (tous les appareils, enregistré sur le compte) : n'afficher que les catégories de certaines langues. La langue est déduite du nom de la catégorie (`FR | Sport`, `Allemagne`…) ; une catégorie sans langue reconnue reste visible.
 
+**MKV partout** : les MKV (et AVI, WMV, FLV, MPEG…) sont convertis à la volée en HLS par le proxy de flux, avec `ffmpeg`, sur tous les appareils. La vidéo n'est pas réencodée (peu de CPU) ; l'audio l'est en AAC si besoin. Avance rapide et choix de la langue audio inclus. Limites : sous-titres intégrés au MKV non affichés pour l'instant, et le HEVC (H.265) dépend de l'appareil. Activé par `STREAM_PROXY_REMUX=1` côté API. Test de bout en bout : `MOCK_MKV`, `FFMPEG_PATH` et `FFPROBE_PATH` (voir `e2e/tests/mkv.spec.ts`).
+
+**Pointeur sur TV** : sur les navigateurs de TV où la télécommande déplace une souris (Hisense), des flèches ▲ ▼ apparaissent sur les listes et les grilles, et le lecteur affiche ses boutons.
+
 **Entre appareils**
 - **Replay** : depuis le guide sur TV et PC, depuis le lecteur sur téléphone, pour les chaînes qui le proposent (Xtream et conventions M3U `catchup`). Limité aux dernières 24 h, durée de conservation du guide.
 - **Reprise** : ce qui vient d'être regardé sur un autre appareil est proposé à l'accueil, en un appui.

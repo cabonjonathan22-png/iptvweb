@@ -14,7 +14,7 @@ import {
   type StreamType,
   type XtreamCreds,
 } from '@iptv/shared';
-import { proxiedUrl } from '@iptv/shared/stream-token';
+import { proxiedUrl, sealStream } from '@iptv/shared/stream-token';
 import { getDb, schema } from './db';
 import { decryptJson } from './crypto';
 import { xtreamTimezone } from './sync/xtream';
@@ -136,9 +136,17 @@ export async function resolveCatchup(
   return { ...res, live: false };
 }
 
+/** Conteneurs qu'aucun navigateur n'ouvre de façon fiable : le proxy les convertit à la volée. */
+const REMUX_EXT = /\.(mkv|avi|wmv|flv|mpe?g|vob|divx|xvid|m2ts)$/i;
+
 function toPlayResponse(upstream: string, live: boolean, hasCreds: boolean, ua?: string, ref?: string): PlayResponse {
   const type = streamTypeOf(upstream, live);
   const proxy = proxyConfig();
+  if (proxy && !live && process.env.STREAM_PROXY_REMUX === '1' && REMUX_EXT.test(upstream.split('?')[0]!)) {
+    const exp = Math.floor(Date.now() / 1000) + TOKEN_TTL_SEC;
+    const base = proxy.url.replace(/\/$/, '') + '/x/' + sealStream({ u: upstream, ua, ref, exp }, proxy.secret);
+    return { url: base + '/0/0/index.m3u8', type: 'hls', live: false, proxied: true, remux: { base } };
+  }
   // Direct seulement si l'origine est déjà en HTTPS sans en-têtes spéciaux et sans identifiants à cacher.
   const direct = !proxy || (upstream.startsWith('https://') && !ua && !ref && !hasCreds);
   if (direct) {

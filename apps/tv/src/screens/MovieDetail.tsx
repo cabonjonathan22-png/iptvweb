@@ -88,7 +88,6 @@ export function MovieDetailScreen({ params }: { params?: Record<string, unknown>
           {m.plot && <p class="detail-plot">{m.plot}</p>}
           {m.director && <p class="detail-credits"><span>Réalisation</span> {m.director}</p>}
           {m.cast && <p class="detail-credits"><span>Avec</span> {m.cast}</p>}
-          {m.containerExt === 'mkv' && <p class="small">Format MKV : la lecture dépend du navigateur de votre TV.</p>}
           <div class="row-actions">
             {canResume ? (
               <>

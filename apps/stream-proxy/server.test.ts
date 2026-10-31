@@ -1,9 +1,10 @@
 /** Test d'intégration : lance le vrai serveur proxy face à une fausse origine. */
+import fs from 'node:fs';
 import http from 'node:http';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { proxiedUrl } from '../../packages/shared/src/stream-token.ts';
+import { proxiedUrl, sealStream } from '../../packages/shared/src/stream-token.ts';
 
 const SECRET = 'test-secret-0123456789';
 const PORT = 18_080;
@@ -40,6 +41,19 @@ beforeAll(async () => {
       }
       res.writeHead(200, { 'Content-Type': 'video/mp2t', 'Content-Length': String(media.length) });
       return res.end(media);
+    }
+    if (req.url === '/film.mkv' && process.env.REMUX_TEST_FILE) {
+      const file = fs.readFileSync(process.env.REMUX_TEST_FILE);
+      const m = /bytes=(\d+)-(\d+)?/.exec(req.headers.range || '');
+      const a = m ? Number(m[1]) : 0;
+      const b = m && m[2] ? Number(m[2]) : file.length - 1;
+      res.writeHead(m ? 206 : 200, {
+        'Content-Type': 'video/x-matroska',
+        'Content-Length': String(b - a + 1),
+        'Accept-Ranges': 'bytes',
+        ...(m ? { 'Content-Range': `bytes ${a}-${b}/${file.length}` } : {}),
+      });
+      return res.end(file.subarray(a, b + 1));
     }
     if (req.url === '/to-metadata') {
       res.writeHead(302, { Location: 'http://169.254.169.254/latest' });
@@ -112,5 +126,42 @@ describe('stream proxy', () => {
     const pre = await fetch(PROXY + '/s/x/y', { method: 'OPTIONS' });
     expect(pre.status).toBe(204);
     expect(pre.headers.get('access-control-allow-headers')).toContain('Range');
+  });
+});
+
+// Demande ffmpeg et un MKV de test : FFMPEG_PATH, FFPROBE_PATH et REMUX_TEST_FILE (deux pistes audio AC3).
+describe.skipIf(!process.env.REMUX_TEST_FILE)('conversion MKV', () => {
+  const base = () => `${PROXY}/x/${sealStream({ u: originUrl + '/film.mkv', exp: Math.floor(Date.now() / 1000) + 600 }, SECRET)}`;
+
+  it('annonce la durée et les pistes, en HLS lisible, avec CORS', async () => {
+    const b = base();
+    const info = (await (await fetch(b + '/info')).json()) as { duration: number; video: string; audio: { lang: string }[] };
+    expect(info.video).toBe('h264');
+    expect(info.duration).toBeGreaterThan(30);
+    expect(info.audio.map((a) => a.lang)).toEqual(['fre', 'eng']);
+
+    const res = await fetch(b + '/0/0/index.m3u8');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('access-control-allow-origin')).toBe('*');
+    const text = await res.text();
+    expect(text).toContain('#EXT-X-START:TIME-OFFSET=0');
+    expect(text).not.toContain(originUrl);
+    const seg = /^seg\d+\.ts$/m.exec(text)![0];
+    const media = await fetch(b + '/0/0/' + seg);
+    expect(media.status).toBe(200);
+    // Paquets MPEG-TS : octet de synchronisation.
+    expect(new Uint8Array(await media.arrayBuffer())[0]).toBe(0x47);
+  }, 90_000);
+
+  it("repart d'une autre position et d'une autre piste audio", async () => {
+    const b = base();
+    const res = await fetch(b + '/20/1/index.m3u8');
+    expect(res.status).toBe(200);
+    expect(await res.text()).toMatch(/seg0\.ts/);
+  }, 90_000);
+
+  it('refuse un jeton invalide ou un chemin de fichier', async () => {
+    expect((await fetch(`${PROXY}/x/abc/info`)).status).toBe(403);
+    expect((await fetch(`${base()}/0/0/..%2f..%2fserver.ts`)).status).toBe(403);
   });
 });

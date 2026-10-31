@@ -9,7 +9,8 @@
  *  - réécrit les playlists HLS (segments, clés, init, pistes) vers lui-même ;
  *  - transmet User-Agent / Referer définis par la playlist ;
  *  - relaie les requêtes Range (avance rapide en VOD) et diffuse en flux continu (TS live) ;
- *  - ajoute les en-têtes CORS ; refuse les adresses réseau privées.
+ *  - ajoute les en-têtes CORS ; refuse les adresses réseau privées ;
+ *  - convertit à la volée les conteneurs illisibles par les navigateurs (MKV…), cf. remux.ts.
  *
  * Aucune dépendance : Node ≥ 22.18 (types TypeScript retirés nativement).
  *   STREAM_PROXY_SECRET=… PORT=8080 node apps/stream-proxy/server.ts
@@ -21,6 +22,7 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { openStream, proxiedUrl, rewriteHlsPlaylist, type StreamTarget } from '../../packages/shared/src/stream-token.ts';
 import { isLocalHostname, isPrivateIp } from '../../packages/shared/src/net-guard.ts';
+import { probe, servePlaylist, serveSegment, sourceKey, stopAllRemux } from './remux.ts';
 
 const PORT = Number(process.env.PORT || 8080);
 const SECRET = process.env.STREAM_PROXY_SECRET || '';
@@ -91,7 +93,27 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
   }
   const url = new URL(req.url || '/', 'http://proxy');
   if (url.pathname === '/health') return send(res, 200, 'ok');
+  if (url.pathname === '/version') return send(res, 200, JSON.stringify({ remux: true }));
   if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'method');
+
+  const remux = /^\/x\/([A-Za-z0-9_-]+)\/(?:info|(\d+)\/(\d+)\/(index\.m3u8|init\.mp4|seg\d+\.(?:ts|m4s)))$/.exec(url.pathname);
+  if (remux) {
+    const t = openStream(remux[1]!, SECRET);
+    if (!t) return send(res, 403, 'invalid or expired token');
+    if (!(await upstreamAllowed(t.u))) return send(res, 403, 'upstream not allowed');
+    const key = sourceKey(t.u);
+    // ffmpeg repasse par /s/ : mêmes contrôles et mêmes en-têtes que le reste.
+    const input = 'http://127.0.0.1:' + PORT + '/s/' + remux[1];
+    const file = remux[4];
+    if (!file) {
+      const info = await probe(key, input).catch(() => null);
+      if (!info) return send(res, 502, 'probe failed');
+      res.writeHead(200, { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      return res.end(JSON.stringify(info));
+    }
+    if (file === 'index.m3u8') return servePlaylist(res, CORS, send, key, input, Number(remux[2]), Number(remux[3]));
+    return serveSegment(res, CORS, send, key, file);
+  }
 
   const m = /^\/s\/([A-Za-z0-9_-]+)(?:\/[^/]*)?$/.exec(url.pathname);
   const target: StreamTarget | null = m ? openStream(m[1]!, SECRET) : null;
@@ -183,5 +205,8 @@ server.keepAliveTimeout = 65_000;
 server.listen(PORT, () => console.log(`[stream-proxy] :${PORT}`));
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
-  process.on(sig, () => server.close(() => process.exit(0)));
+  process.on(sig, () => {
+    stopAllRemux();
+    server.close(() => process.exit(0));
+  });
 }

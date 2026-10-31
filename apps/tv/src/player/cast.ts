@@ -75,12 +75,14 @@ export function castMedia(source: () => Promise<PlayResponse>, title: string, st
     source().then((r) => {
       const type = CONTENT_TYPE[r.type];
       if (!type) throw new Error('Ce format (' + r.type.toUpperCase() + ") n'est pas lisible par le Chromecast.");
-      const info = new chrome.cast.media.MediaInfo(r.url, type);
+      // Conversion à la volée : le proxy démarre directement à la bonne position.
+      const url = r.remux && startAt ? r.remux.base + '/' + Math.floor(startAt) + '/0/index.m3u8' : r.url;
+      const info = new chrome.cast.media.MediaInfo(url, type);
       info.streamType = r.live ? chrome.cast.media.StreamType.LIVE : chrome.cast.media.StreamType.BUFFERED;
       info.metadata = new chrome.cast.media.GenericMediaMetadata();
       info.metadata.title = title;
       const req = new chrome.cast.media.LoadRequest(info);
-      if (startAt) req.currentTime = startAt;
+      if (startAt && !r.remux) req.currentTime = startAt;
       return ctx
         .getCurrentSession()
         .loadMedia(req)

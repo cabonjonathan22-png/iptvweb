@@ -423,7 +423,7 @@ export function VodPlayer({ playback }: { playback: VodPlayback }) {
     setLoadError(null);
     setCountdown(null);
     source(isIOS ? 'hls' : undefined)
-      .then((r) => player.load({ url: r.url, type: r.type, live: false, startAt: item.startAt || undefined }))
+      .then((r) => player.load({ url: r.url, type: r.type, live: false, startAt: item.startAt || undefined, remux: r.remux }))
       .catch((e: ApiError) => setLoadError(e.message || 'Lecture impossible.'));
     overlay.show();
     const t = window.setInterval(() => tick(undefined), 1000);

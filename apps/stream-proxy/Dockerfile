@@ -1,10 +1,11 @@
 # Build depuis la RACINE du dépôt :
 #   docker build -f apps/stream-proxy/Dockerfile -t oria-stream-proxy .
-# Aucune dépendance npm : seuls le serveur et deux modules partagés sont copiés.
+# Aucune dépendance npm : seuls le serveur et deux modules partagés sont copiés. ffmpeg sert aux MKV.
 FROM node:22-alpine
+RUN apk add --no-cache ffmpeg
 WORKDIR /app
 COPY packages/shared/src/stream-token.ts packages/shared/src/net-guard.ts packages/shared/src/
-COPY apps/stream-proxy/server.ts apps/stream-proxy/
+COPY apps/stream-proxy/server.ts apps/stream-proxy/remux.ts apps/stream-proxy/
 ENV NODE_ENV=production PORT=8080
 USER node
 EXPOSE 8080

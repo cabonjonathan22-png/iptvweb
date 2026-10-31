@@ -22,6 +22,37 @@ export interface Source {
   type: StreamType;
   live: boolean;
   startAt?: number;
+  /** Fichier converti à la volée par le proxy (MKV…). */
+  remux?: { base: string };
+}
+
+interface RemuxInfo {
+  duration: number | null;
+  video: string | null;
+  audio: { id: number; codec: string; lang: string | null; title: string | null; channels: number | null }[];
+}
+
+/** Codes de langue à 3 lettres des MKV -> 2 lettres des réglages. */
+const LANG3: Record<string, string> = { fre: 'fr', fra: 'fr', eng: 'en', spa: 'es', ger: 'de', deu: 'de', ita: 'it', por: 'pt', ara: 'ar' };
+const lang2 = (l: string | null) => (l ? LANG3[l.toLowerCase()] || l.toLowerCase().slice(0, 2) : null);
+
+function fetchJson<T>(url: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open('GET', url, true);
+    // Le proxy gratuit peut être en veille, et il doit ouvrir le fichier chez le fournisseur.
+    x.timeout = 90_000;
+    x.onload = () => {
+      try {
+        if (x.status === 200) resolve(JSON.parse(x.responseText) as T);
+        else reject(new Error('http ' + x.status));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    x.onerror = x.ontimeout = () => reject(new Error('network'));
+    x.send();
+  });
 }
 
 export type PlayState = 'idle' | 'loading' | 'playing' | 'paused' | 'buffering' | 'error' | 'ended';
@@ -47,6 +78,8 @@ const MESSAGES = {
   network: 'La chaîne ne répond pas. Le flux est peut-être hors ligne ou votre abonnement saturé.',
   unsupported: 'Ce fichier n’a pas pu être lu : format non pris en charge par votre TV, ou fichier indisponible chez votre fournisseur.',
   mkv: 'Ce fichier MKV n’a pas pu être lu : le navigateur de votre TV ne gère souvent pas ce format (ou le fichier est indisponible). Essayez une autre version si votre fournisseur en propose.',
+  hevc: 'Cette vidéo est en HEVC (H.265), que ce navigateur ne sait pas décoder. Essayez sur un autre appareil, ou une autre version si votre fournisseur en propose.',
+  remux: 'Ce fichier n’a pas pu être préparé pour la lecture : il est peut-être indisponible chez votre fournisseur.',
   media: 'Le flux vidéo est illisible (erreur de décodage).',
 };
 
@@ -60,6 +93,9 @@ class Engine {
   /** Tentative de reconnexion en cours (affichée : jamais d'attente silencieuse). */
   reconnect: { attempt: number; max: number } | null = null;
 
+  private remuxInfo: RemuxInfo | null = null;
+  private remuxOffset = 0;
+  private remuxAudio = 0;
   private hls: any = null;
   private mts: any = null;
   private nativeActive = false;
@@ -130,6 +166,9 @@ class Engine {
     this.error = null;
     this.retries = 0;
     this.reconnect = null;
+    this.remuxInfo = null;
+    this.remuxOffset = src.remux && src.startAt ? Math.floor(src.startAt) : 0;
+    this.remuxAudio = 0;
     this.start();
   }
 
@@ -157,10 +196,11 @@ class Engine {
 
   /** Position et durée courantes (secondes ; durée null si inconnue / direct). */
   position(): number {
-    return this.video ? this.video.currentTime : 0;
+    return this.remuxOffset + (this.video ? this.video.currentTime : 0);
   }
 
   duration(): number | null {
+    if (this.src && this.src.remux && this.remuxInfo && this.remuxInfo.duration) return this.remuxInfo.duration;
     const d = this.video ? this.video.duration : NaN;
     return isFinite(d) && d > 0 ? d : null;
   }
@@ -169,7 +209,28 @@ class Engine {
     const v = this.video;
     if (!v || !this.src || this.src.live) return;
     const d = this.duration();
-    v.currentTime = Math.max(0, d ? Math.min(d - 1, seconds) : seconds);
+    const target = Math.max(0, d ? Math.min(d - 1, seconds) : seconds);
+    if (this.src.remux) return this.remuxSeek(target);
+    v.currentTime = target;
+  }
+
+  /** Dans ce qui est déjà converti : déplacement simple. Sinon le proxy repart de cette position. */
+  private remuxSeek(target: number) {
+    const v = this.video!;
+    const rel = target - this.remuxOffset;
+    const s = v.seekable;
+    if (rel >= 0 && s && s.length && rel <= s.end(s.length - 1)) {
+      v.currentTime = rel;
+      return;
+    }
+    this.remuxRestart(target);
+  }
+
+  private remuxRestart(at: number) {
+    this.remuxOffset = Math.floor(at);
+    this.teardown();
+    this.retries = 0;
+    this.start();
   }
 
   /** Pistes audio / sous-titres selon les langues préférées du compte. */
@@ -204,11 +265,19 @@ class Engine {
 
   seekBy(seconds: number) {
     const v = this.video;
+    if (this.src && this.src.remux) return this.seekTo(this.position() + seconds);
     if (!v || !this.src || this.src.live || !isFinite(v.duration)) return;
     v.currentTime = Math.max(0, Math.min(v.duration - 1, v.currentTime + seconds));
   }
 
   audioTracks(): Track[] {
+    if (this.src && this.src.remux && this.remuxInfo) {
+      return this.remuxInfo.audio.map((a) => ({
+        id: a.id,
+        label: a.title || (a.lang ? a.lang.toUpperCase() : 'Piste ' + (a.id + 1)),
+        active: a.id === this.remuxAudio,
+      }));
+    }
     if (this.hls) {
       return (this.hls.audioTracks || []).map((t: any, i: number) => ({
         id: i,
@@ -226,6 +295,13 @@ class Engine {
   }
 
   setAudioTrack(id: number) {
+    if (this.src && this.src.remux) {
+      if (id === this.remuxAudio) return;
+      this.remuxAudio = id;
+      this.remuxRestart(this.position());
+      this.emit();
+      return;
+    }
     if (this.hls) this.hls.audioTrack = id;
     else {
       const at = this.video && (this.video as any).audioTracks;
@@ -271,14 +347,35 @@ class Engine {
 
   private async start() {
     const s = ++this.session;
-    const src = this.src;
+    let src = this.src;
     const v = this.video;
     if (!src || !v) return;
     this.set('loading');
     this.armStall();
     try {
+      if (src.remux) {
+        if (!this.remuxInfo) {
+          const info = await fetchJson<RemuxInfo>(src.remux.base + '/info');
+          if (s !== this.session) return;
+          if (info.video === 'hevc' && !this.canPlayHevc()) {
+            this.remuxInfo = info;
+            this.error = { kind: 'unsupported', message: MESSAGES.hevc };
+            this.state = 'error';
+            this.emit();
+            return;
+          }
+          this.remuxInfo = info;
+          const want = session.settings.audioLang;
+          const pick = want ? info.audio.filter((a) => lang2(a.lang) === want.slice(0, 2))[0] : null;
+          if (pick) this.remuxAudio = pick.id;
+          this.emit();
+        }
+        src = { ...src, url: src.remux.base + '/' + this.remuxOffset + '/' + this.remuxAudio + '/index.m3u8', startAt: undefined };
+      }
       if (src.type === 'hls') {
-        if (!flags.forceHlsJs && v.canPlayType('application/vnd.apple.mpegurl')) return this.native(src);
+        // Fichier converti : hls.js partout où il fonctionne ; le natif (iPhone) sinon.
+        const hasMse = !!(window as any).MediaSource;
+        if (!flags.forceHlsJs && (!src.remux || !hasMse) && v.canPlayType('application/vnd.apple.mpegurl')) return this.native(src);
         const Hls = (await import('hls.js')).default as any;
         if (s !== this.session) return;
         if (Hls.isSupported()) return this.withHls(Hls, src, s);
@@ -338,7 +435,12 @@ class Engine {
       maxBufferSize: 30 * 1000 * 1000,
       backBufferLength: src.live ? 10 : 30,
       liveSyncDurationCount: 3,
-      startPosition: src.startAt || -1,
+      // Conversion en cours : le début est la position voulue, pas le « direct ».
+      startPosition: src.remux ? 0 : src.startAt || -1,
+      // La première réponse peut attendre que le proxy se réveille et ouvre le fichier.
+      manifestLoadingTimeOut: src.remux ? 70_000 : 10_000,
+      levelLoadingTimeOut: src.remux ? 30_000 : 10_000,
+      liveDurationInfinity: !!src.remux,
       capLevelToPlayerSize: true,
       manifestLoadingMaxRetry: 2,
       levelLoadingMaxRetry: 3,
@@ -424,17 +526,28 @@ class Engine {
     this.reconnect = { attempt: this.retries, max: RETRY_DELAYS.length };
     // VOD : on reprendra à la même position.
     const v = this.video;
-    if (this.src && !this.src.live && v && v.currentTime > 1) this.src = { ...this.src, startAt: v.currentTime };
+    if (this.src && this.src.remux) {
+      if (v && v.currentTime > 1) this.remuxOffset = Math.floor(this.position());
+    } else if (this.src && !this.src.live && v && v.currentTime > 1) this.src = { ...this.src, startAt: v.currentTime };
     this.teardown();
     this.set('loading');
     this.retryTimer = window.setTimeout(() => this.start(), delay);
+  }
+
+  private canPlayHevc(): boolean {
+    const v = this.video;
+    const type = 'video/mp4; codecs="hvc1.1.6.L93.B0"';
+    if (v && v.canPlayType(type)) return true;
+    const ms = (window as any).MediaSource;
+    return !!(ms && ms.isTypeSupported && ms.isTypeSupported(type));
   }
 
   private fail(kind: PlayerError['kind']) {
     this.teardown();
     this.reconnect = null;
     const mkv = kind === 'unsupported' && this.src && this.src.type === 'mkv';
-    this.error = { kind, message: mkv ? MESSAGES.mkv : MESSAGES[kind] };
+    const remux = this.src && this.src.remux;
+    this.error = { kind, message: remux ? MESSAGES.remux : mkv ? MESSAGES.mkv : MESSAGES[kind] };
     this.state = 'error';
     this.emit();
   }

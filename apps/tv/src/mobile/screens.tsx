@@ -493,7 +493,6 @@ export function MovieScreen({ id }: { id: number }) {
           {m.plot && <p>{m.plot}</p>}
           {m.director && <p class="m-muted">Réalisation : {m.director}</p>}
           {m.cast && <p class="m-muted">Avec : {m.cast}</p>}
-          {m.containerExt === 'mkv' && <p class="m-muted m-small">Format MKV : la lecture dépend de votre navigateur.</p>}
         </div>
       </div>
     </div>

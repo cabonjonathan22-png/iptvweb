@@ -57,7 +57,7 @@ export function VodPlayer({ item, next, onPlayNext, onExit }: Props) {
     setCountdown(null);
     player.setView({ mode: 'full' });
     source()
-      .then((r) => player.load({ url: r.url, type: r.type, live: false, startAt: item.startAt || undefined }))
+      .then((r) => player.load({ url: r.url, type: r.type, live: false, startAt: item.startAt || undefined, remux: r.remux }))
       .catch((e: ApiError) => setLoadError(e.message || 'Lecture impossible.'));
     show();
     // Horloge de la barre de progression.

@@ -10,6 +10,7 @@
  *
  * Nécessite ALLOW_PRIVATE_SOURCES=1 côté apps/web (adresse locale).
  */
+import fs from 'node:fs';
 import http from 'node:http';
 import { generateM3uLines, generateXmltv } from '../packages/shared/src/fixtures.ts';
 
@@ -175,6 +176,19 @@ const server = http.createServer((req, res) => {
     return h ? h(res, url) : sendJson(res, []);
   }
   // VOD / épisodes : redirection vers une vidéo de test.
+  if (process.env.MOCK_MKV && /^\/movie\/[^/]+\/[^/]+\/\d+\.mkv$/.test(url.pathname)) {
+    const file = fs.readFileSync(process.env.MOCK_MKV);
+    const m = /bytes=(\d+)-(\d+)?/.exec(req.headers.range || '');
+    const a = m ? Number(m[1]) : 0;
+    const b = m && m[2] ? Number(m[2]) : file.length - 1;
+    res.writeHead(m ? 206 : 200, {
+      'Content-Type': 'video/x-matroska',
+      'Content-Length': String(b - a + 1),
+      'Accept-Ranges': 'bytes',
+      ...(m ? { 'Content-Range': `bytes ${a}-${b}/${file.length}` } : {}),
+    });
+    return res.end(file.subarray(a, b + 1));
+  }
   if (/^\/(movie|series)\/[^/]+\/[^/]+\/\d+\.\w+$/.test(url.pathname)) {
     res.writeHead(302, { Location: TEST_MP4 });
     return res.end();
