@@ -133,7 +133,7 @@ test('films, séries, EPG, recherche, favoris, parental, réglages', async ({ br
   await press(tv, 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'Enter');
   await expect(tv.locator('.crumb')).toHaveText('Réglages');
   await expect(tv.getByText('Contrôle parental : code défini')).toBeVisible();
-  await press(tv, 'ArrowDown', 'Enter'); // langue audio -> Français
+  await press(tv, 'ArrowDown', 'ArrowDown', 'Enter'); // langue audio -> Français
   await expect(tv.locator('.is-focused')).toHaveText('Langue audio : Français');
   await expect
     .poll(async () => {

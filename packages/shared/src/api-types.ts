@@ -175,6 +175,15 @@ export interface TvSettings {
   playerMode: 'auto' | 'hls' | 'ts';
   livePreview: boolean;
   hasPin: boolean;
+  /** Langues de contenu à afficher (codes) ; vide = toutes. */
+  contentLangs: string[];
+}
+
+export interface ContentLanguage {
+  code: string;
+  label: string;
+  /** Nombre de catégories de la playlist dans cette langue. */
+  categories: number;
 }
 
 export interface PlaylistSummary {

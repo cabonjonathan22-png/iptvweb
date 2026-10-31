@@ -1,4 +1,4 @@
-import { and, asc, count, eq, sql } from 'drizzle-orm';
+import { and, asc, count, eq, notInArray, sql } from 'drizzle-orm';
 import type { TvCategory } from '@iptv/shared';
 import { getDb, schema } from '@/lib/db';
 import { apiError } from '@/lib/http';
@@ -24,7 +24,14 @@ export async function GET(req: Request) {
       .select({ id: c.id, name: sql<string>`coalesce(${c.customName}, ${c.name})`, locked: c.locked, count: count(t.id) })
       .from(c)
       .innerJoin(t, eq(t.categoryId, c.id))
-      .where(and(eq(c.playlistId, ctx.playlist.id), eq(c.kind, kind), eq(c.hidden, false)))
+      .where(
+        and(
+          eq(c.playlistId, ctx.playlist.id),
+          eq(c.kind, kind),
+          eq(c.hidden, false),
+          ctx.excludedCategories.length ? notInArray(c.id, ctx.excludedCategories) : undefined,
+        ),
+      )
       .groupBy(c.id)
       .orderBy(asc(c.sortOrder), asc(c.id));
   });

@@ -25,6 +25,15 @@ L'architecture et les choix techniques sont détaillés dans [PLAN.md](PLAN.md).
 - **Réglages** : playlist active, langues audio et sous-titres préférées, aperçu, format du direct, code parental, Debug touches, déliaison.
 - **Robustesse** : reconnexion automatique visible, messages d'erreur explicites avec « Réessayer », jamais d'écran noir muet.
 
+**Téléphone, tablette, PC** : la même adresse s'adapte à l'appareil.
+- **TV** (détectée à son navigateur) : télécommande et navigation spatiale.
+- **PC** : la même scène, avec souris, molette, clavier et boutons à l'écran dans le lecteur.
+- **Téléphone et tablette** (ou fenêtre de PC de moins de 900 px) : interface tactile dédiée, chargée à part pour ne rien ajouter sur TV. Onglets en bas, listes à défilement natif, lecteur portrait ou paysage, double appui pour ±10 s, retour système.
+- **Web app** : installation proposée sur téléphone et tablette (invite Android, instructions iOS). Les flux et l'API ne sont jamais mis en cache.
+- Forçage pour les tests : `?device=tv`, `?device=desktop` ou `?device=mobile`.
+
+**Filtre de langues** (tous les appareils, enregistré sur le compte) : n'afficher que les catégories de certaines langues. La langue est déduite du nom de la catégorie (`FR | Sport`, `Allemagne`…) ; une catégorie sans langue reconnue reste visible.
+
 **Dashboard** (mobile-first) : comptes, TV liées (renommer, révoquer, playlist), playlists (Xtream, lien ou fichier M3U, guide XMLTV), statut de synchro, catégories (masquer, renommer, réordonner, verrouiller), aperçu avec lecteur de test, réglages et code parental.
 
 ---
@@ -209,7 +218,7 @@ Cron 12 h ──▶ /api/cron/sync : playlists à rafraîchir + jobs abandonnés
 
 ## Performance (mesurée au build)
 
-- Bundle TV chargé au démarrage : **~99 Ko gzip** (37 Ko d'app et 62 Ko de polyfills legacy). hls.js (~190 Ko) et mpegts.js (~62 Ko) ne sont chargés qu'à la première lecture qui en a besoin.
+- Bundle TV chargé au démarrage : **~102 Ko gzip** (40 Ko d'app et 62 Ko de polyfills legacy) ; l'interface tactile (~16 Ko) n'est chargée que sur téléphone et tablette. hls.js (~190 Ko) et mpegts.js (~62 Ko) ne sont chargés qu'à la première lecture qui en a besoin.
 - Le shell HTML s'affiche avant le JS, puis des skeletons pendant le chargement des données. L'accueil arrive en une seule requête.
 - Listes, grilles, rangées et guide sont virtualisés : environ 15 à 30 nœuds par liste, quelle que soit sa taille. Les images hors écran sont démontées, donc libérées.
 - Animations limitées à `transform` et `opacity`. Une seule balise `<video>`, placée hors de la scène mise à l'échelle.

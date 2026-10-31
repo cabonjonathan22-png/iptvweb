@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   const c = schema.categories;
 
   const run = <T extends typeof schema.channels | typeof schema.vodItems | typeof schema.series>(t: T) => ({
-    where: and(eq(t.playlistId, ctx.playlist.id), visibleCategory(t.categoryId, ctx.lockedOk), sql`lower(${t.name}) like ${'%' + esc + '%'}`),
+    where: and(eq(t.playlistId, ctx.playlist.id), visibleCategory(t.categoryId, ctx), sql`lower(${t.name}) like ${'%' + esc + '%'}`),
     order: [sql`(lower(${t.name}) like ${esc + '%'}) desc`, sql`length(${t.name})`, asc(t.id)],
   });
 

@@ -2,7 +2,7 @@ import { and, eq, type SQL } from 'drizzle-orm';
 import type { PosterCard, TvChannel } from '@iptv/shared';
 import { schema } from './db';
 import { imageUrl } from './images';
-import { visibleCategory } from './tv-api';
+import { visibleCategory, type TvContext } from './tv-api';
 
 const ch = schema.channels;
 
@@ -16,8 +16,8 @@ export const channelColumns = {
 };
 
 /** Chaînes visibles d'une playlist (LEFT JOIN categories requis). */
-export function visibleChannels(playlistId: string, lockedOk: boolean, extra?: SQL): SQL {
-  return and(eq(ch.playlistId, playlistId), visibleCategory(ch.categoryId, lockedOk), extra)!;
+export function visibleChannels(playlistId: string, ctx: Pick<TvContext, 'lockedOk' | 'excludedCategories'>, extra?: SQL): SQL {
+  return and(eq(ch.playlistId, playlistId), visibleCategory(ch.categoryId, ctx), extra)!;
 }
 
 export function toTvChannel(

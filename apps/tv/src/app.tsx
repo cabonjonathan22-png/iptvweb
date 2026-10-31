@@ -4,7 +4,8 @@ import { AppCtx, type AppApi, type Entry, type ScreenName } from './app-context'
 import { api, ApiError, setUnauthorizedHandler } from './lib/api';
 import { storage } from './lib/storage';
 import { focus } from './nav/focus';
-import { FocusLayer, keyHandlers } from './nav/hooks';
+import { dispatchKey, FocusLayer, sendKey, setDefaultKeyHandler } from './nav/hooks';
+import { isPointerDevice } from './lib/device';
 import { DEBUG_SEQUENCE, mapKey, type Action } from './nav/keys';
 import { Button } from './components/Button';
 import { Dialog } from './components/Dialog';
@@ -130,8 +131,9 @@ export function App() {
         }
       }
 
-      for (let i = keyHandlers.length - 1; i >= 0; i--) if (keyHandlers[i]!(k)) return;
-
+      dispatchKey(k);
+    };
+    setDefaultKeyHandler((k) => {
       switch (k.action) {
         case 'up':
         case 'down':
@@ -146,7 +148,7 @@ export function App() {
           if (!k.repeat) app.back();
           break;
       }
-    };
+    });
     document.addEventListener('keydown', onKeyDown);
 
     // Certaines TV transforment Retour en history.back() sans keydown : on garde
@@ -160,7 +162,8 @@ export function App() {
     };
     const onPop = () => {
       trap();
-      app.back();
+      // Même chemin que la touche Retour : le lecteur et les modales passent d'abord.
+      sendKey('back');
     };
     trap();
     window.addEventListener('popstate', onPop);
@@ -216,7 +219,9 @@ function ExitDialog({ onClose }: { onClose: () => void }) {
   return (
     <Dialog name="dlg-exit" title="Quitter l'application ?" onClose={onClose}>
       {failed && (
-        <p class="dialog-text">Appuyez sur la touche Accueil (Home) de la télécommande pour quitter.</p>
+        <p class="dialog-text">
+          {isPointerDevice ? 'Fermez simplement cet onglet pour quitter.' : 'Appuyez sur la touche Accueil (Home) de la télécommande pour quitter.'}
+        </p>
       )}
       <div class="row-actions">
         <Button id="exit-cancel" variant="primary" onSelect={onClose} autoFocus>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import type { PlaylistSummary } from '@iptv/shared';
+import type { ContentLanguage, PlaylistSummary } from '@iptv/shared';
 import { useApp } from '../app-context';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
@@ -17,7 +17,7 @@ const MODE_LABEL: Record<LiveMode, string> = { auto: 'Auto', hls: 'HLS', ts: 'MP
 
 const cycle = <T,>(list: T[], v: T) => list[(list.indexOf(v) + 1) % list.length]!;
 
-type Panel = null | 'playlists' | 'pin' | 'unlink';
+type Panel = null | 'playlists' | 'langs' | 'pin' | 'unlink';
 
 export function SettingsScreen() {
   const app = useApp();
@@ -25,6 +25,17 @@ export function SettingsScreen() {
   const [, refresh] = useState(0);
   const s = session.settings;
   const me = app.me;
+
+  // Le chargement du démarrage peut ne pas être terminé, ou l'appareil a changé d'autres réglages.
+  useEffect(() => {
+    api
+      .settings()
+      .then((st) => {
+        session.settings = st;
+        refresh((n) => n + 1);
+      })
+      .catch(() => undefined);
+  }, []);
 
   const saveLang = (key: 'audioLang' | 'subtitleLang') => {
     const next = cycle(LANGS, s[key]);
@@ -40,6 +51,9 @@ export function SettingsScreen() {
         <div class="settings-menu">
           <Button id="set-playlist" autoFocus onSelect={() => setPanel('playlists')}>
             Playlist : {me && me.playlist ? me.playlist.name : 'aucune'}
+          </Button>
+          <Button id="set-langs" onSelect={() => setPanel('langs')}>
+            Contenu : {s.contentLangs.length ? s.contentLangs.map((c) => c.toUpperCase()).join(', ') : 'toutes les langues'}
           </Button>
           <Button id="set-audio" onSelect={() => saveLang('audioLang')}>
             Langue audio : {s.audioLang ? LANG_LABEL[s.audioLang] : 'par défaut'}
@@ -92,6 +106,7 @@ export function SettingsScreen() {
       </div>
 
       {panel === 'playlists' && <PlaylistsDialog onClose={() => setPanel(null)} />}
+      {panel === 'langs' && <LanguagesDialog onClose={() => setPanel(null)} />}
       {panel === 'pin' && (
         <PinSetupDialog
           hasPin={s.hasPin}
@@ -104,6 +119,46 @@ export function SettingsScreen() {
       )}
       {panel === 'unlink' && <UnlinkDialog onClose={() => setPanel(null)} />}
     </div>
+  );
+}
+
+/** Filtre : n'afficher que les catégories de certaines langues. */
+function LanguagesDialog({ onClose }: { onClose: () => void }) {
+  const [list, setList] = useState<ContentLanguage[] | null>(null);
+  const [selected, setSelected] = useState<string[]>(session.settings.contentLangs);
+  useEffect(() => {
+    api.languages().then(setList).catch(() => setList([]));
+  }, []);
+  const save = (next: string[]) => {
+    setSelected(next);
+    session.settings.contentLangs = next;
+    api.saveSettings({ contentLangs: next }).catch(() => undefined);
+  };
+  return (
+    <Dialog name="dlg-langs" title="Langues du contenu" onClose={onClose}>
+      <p class="dialog-text">Seules les catégories de ces langues s'affichent. Celles sans langue reconnue restent visibles.</p>
+      {!list && <p class="dialog-text">Chargement…</p>}
+      {list && !list.length && <p class="dialog-text">Aucune langue reconnue dans cette playlist.</p>}
+      <div class="chips dialog-chips">
+        <Button id="lang-all" autoFocus variant={selected.length ? 'ghost' : 'primary'} onSelect={() => save([])}>
+          Toutes
+        </Button>
+        {list &&
+          list.map((l) => {
+            const on = selected.indexOf(l.code) >= 0;
+            return (
+              <Button
+                key={l.code}
+                id={'lang-' + l.code}
+                variant={on ? 'primary' : 'ghost'}
+                onSelect={() => save(on ? selected.filter((c) => c !== l.code) : selected.concat([l.code]))}
+              >
+                {l.label} ({l.categories})
+              </Button>
+            );
+          })}
+      </div>
+    </Dialog>
   );
 }
 

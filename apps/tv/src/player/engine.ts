@@ -313,7 +313,19 @@ class Engine {
       };
       v.addEventListener('loadedmetadata', onMeta);
     }
-    v.play().catch(() => undefined);
+    this.tryPlay();
+  }
+
+  /** Lecture automatique refusée (téléphone, onglet sans interaction) : on attend un appui. */
+  private tryPlay() {
+    const v = this.video;
+    if (!v) return;
+    v.play().catch((e: Error) => {
+      if (e && e.name === 'NotAllowedError') {
+        this.clearStall();
+        this.set('paused');
+      }
+    });
   }
 
   private withHls(Hls: any, src: Source, s: number) {
@@ -352,7 +364,7 @@ class Engine {
       } else this.fail('media');
     });
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      if (s === this.session) v.play().catch(() => undefined);
+      if (s === this.session) this.tryPlay();
     });
     hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
       this.applyLangPrefs();

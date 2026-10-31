@@ -50,7 +50,10 @@ iptvweb/
 | 7 | Recherche globale (trigrammes) + clavier virtuel, résultats instantanés | ✅ |
 | 8 | Favoris (touche rouge, catégories Favoris) et reprise (serveur toutes les 10 s + local), rangées de l'accueil | ✅ |
 | 9 | Réglages (compte) et contrôle parental : PIN scrypt, jeton de déverrouillage 1 h, catégories verrouillées | ✅ |
-| 10 | Polish & performance : bundle initial ~99 Ko gzip, skeletons, focus initial, messages d'erreur, tests | ✅ |
+| 10 | Polish & performance : bundle initial ~102 Ko gzip, skeletons, focus initial, messages d'erreur, tests | ✅ |
+| 11 | PC : souris, molette, boutons à l'écran ; synchronisation avec étapes et progression | ✅ |
+| 12 | Filtre de langues du contenu (déduit des noms de catégories, côté serveur) | ✅ |
+| 13 | Interface tactile téléphone et tablette (chunk séparé), web app installable, dashboard responsive | ✅ |
 
 ## Décisions techniques
 

@@ -8,6 +8,8 @@ import { usePlayer } from './usePlayer';
 import { ProgressBar } from '../components/Cards';
 import { epgFor, onEpgChange, progressOf } from '../lib/epg-store';
 import { hhmm } from '../lib/format';
+import { PointerControls } from '../components/PointerControls';
+import { isPointerDevice } from '../lib/device';
 
 const OVERLAY_MS = 4000;
 const DIGIT_WAIT_MS = 1500;
@@ -124,7 +126,7 @@ export function FullPlayer({ channel, notice, favorite, onFavorite, onZap, onNum
 
   return (
     <FocusLayer name="player">
-      <div class="player-ui">
+      <div class="player-ui" onClick={isPointerDevice ? show : undefined} onMouseMove={isPointerDevice ? show : undefined}>
         {loading && <div class="spinner spinner-corner" aria-label="Chargement" />}
         {loading && p.reconnect && (
           <div class="osd-reconnect">
@@ -151,6 +153,19 @@ export function FullPlayer({ channel, notice, favorite, onFavorite, onZap, onNum
         {digits && <div class="osd-number">{digits}<span class="osd-caret">_</span></div>}
         {notice && <div class="osd-notice">{notice}</div>}
 
+        <PointerControls
+          visible={overlay || loading || p.state === 'error'}
+          items={[
+            ['← Retour', 'back'],
+            ['▼ Chaîne', 'chDown'],
+            ['▲ Chaîne', 'chUp'],
+            ['❚❚ / ▶', 'playPause'],
+            [favorite ? '♥ Favori' : '♡ Favori', 'red'],
+            ['Dernière', 'green'],
+            ['Pistes', 'yellow'],
+            ['Plein écran', 'fullscreen'],
+          ]}
+        />
         <div class={'player-bar' + (overlay || loading ? ' is-visible' : '')}>
           <Img src={channel.logo} name={channel.name} class="player-logo" />
           <div class="player-info">
@@ -177,7 +192,7 @@ export function FullPlayer({ channel, notice, favorite, onFavorite, onZap, onNum
           </div>
           <div class="player-side">
             <div class="player-clock">{time}</div>
-            <div class="player-hints">
+            <div class="player-hints tv-only">
               <span class="key-chip">CH ▲▼</span> Zapper
               <span class="dot dot-red" /> Favori
               <span class="dot dot-green" /> Dernière

@@ -4,7 +4,19 @@ import { useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 
 /** Bouton d'envoi d'une server action : « Enregistrement… » puis « ✓ Enregistré » pendant 2 s. */
-export function SaveButton({ children, className, disabled }: { children: React.ReactNode; className?: string; disabled?: boolean }) {
+export function SaveButton({
+  children,
+  className,
+  disabled,
+  pendingLabel = 'Enregistrement…',
+  doneLabel = '✓ Enregistré',
+}: {
+  children: React.ReactNode;
+  className?: string;
+  disabled?: boolean;
+  pendingLabel?: string;
+  doneLabel?: string;
+}) {
   const { pending } = useFormStatus();
   const [saved, setSaved] = useState(false);
   const wasPending = useRef(false);
@@ -21,7 +33,7 @@ export function SaveButton({ children, className, disabled }: { children: React.
 
   return (
     <button className={className} disabled={disabled || pending} aria-live="polite">
-      {pending ? 'Enregistrement…' : saved ? '✓ Enregistré' : children}
+      {pending ? pendingLabel : saved ? doneLabel : children}
     </button>
   );
 }

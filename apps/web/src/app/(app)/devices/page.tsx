@@ -76,7 +76,7 @@ export default async function DevicesPage({ searchParams }: { searchParams: Prom
                   {d.createdAt.toLocaleDateString('fr-FR')}
                 </p>
                 <div className="flex flex-wrap items-end justify-between gap-3">
-                  <form action={assignPlaylist} className="flex min-w-0 flex-1 gap-2">
+                  <form action={assignPlaylist} className="flex min-w-0 flex-1 basis-full gap-2 sm:basis-auto">
                     <input type="hidden" name="id" value={d.id} />
                     <select
                       name="playlistId"

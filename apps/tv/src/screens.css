@@ -698,3 +698,61 @@
   margin-top: 20px;
   text-align: left;
 }
+
+/* ------------------------------------------------- PC (souris, clavier) */
+
+.device-desktop .tv-only {
+  display: none;
+}
+.device-desktop .vl-row,
+.device-desktop .row-item,
+.device-desktop .grid-cell,
+.device-desktop .hint-back,
+.device-desktop .hint-fav,
+.device-desktop .preview-box,
+.device-desktop .vod-seek {
+  cursor: pointer;
+}
+.hint-fav {
+  margin-left: 8px;
+}
+.pc-bar {
+  position: absolute;
+  left: var(--safe-x);
+  right: var(--safe-x);
+  bottom: 300px;
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  -webkit-transition: opacity 0.2s ease-out;
+  transition: opacity 0.2s ease-out;
+}
+.pc-bar.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.pc-btn {
+  margin: 0 8px;
+  padding: 20px 30px;
+  border: 0;
+  border-radius: 16px;
+  background: rgba(11, 11, 16, 0.88);
+  color: var(--fg);
+  font: inherit;
+  font-size: 30px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pc-btn:hover {
+  background: var(--accent);
+}
+.vod-seek {
+  flex: 1;
+  padding: 16px 0;
+}
+.vod-seek .pbar {
+  height: 8px;
+  margin: 0 20px;
+}

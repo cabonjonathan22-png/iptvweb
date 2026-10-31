@@ -3,6 +3,7 @@ import type { SearchResponse } from '@iptv/shared';
 import { useApp } from '../app-context';
 import { api } from '../lib/api';
 import { useKeyHandler } from '../nav/hooks';
+import { isPointerDevice } from '../lib/device';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Keyboard } from '../components/Keyboard';
 import { Row } from '../components/Row';
@@ -39,6 +40,21 @@ export function SearchScreen() {
       window.clearTimeout(t);
     };
   }, [q]);
+
+  // PC : le clavier physique saisit directement (lettres, espace, retour arrière).
+  useEffect(() => {
+    if (!isPointerDevice) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'Backspace') setQ((v) => v.slice(0, -1));
+      else if (/^[^\d]$/.test(e.key)) setQ((v) => (v + e.key).slice(0, 40));
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, []);
 
   // Chiffres de la télécommande : saisis directement.
   useKeyHandler((k) => {

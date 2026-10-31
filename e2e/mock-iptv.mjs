@@ -29,8 +29,15 @@ const cats = (prefix, n) =>
   Array.from({ length: n }, (_, i) => ({ category_id: String(i + 1), category_name: `${prefix} ${i + 1}`, parent_id: 0 }));
 
 const actions = {
-  get_live_categories: (res) => sendJson(res, cats('Live', 12)),
-  get_live_streams: (res) =>
+  // Compte « langs » : des catégories nommées, pour tester le filtre de langues.
+  get_live_categories: (res, url) =>
+    sendJson(
+      res,
+      url.searchParams.get('username') === 'langs'
+        ? ['FR | Sport', 'EN | News', 'Documentaires'].map((name, i) => ({ category_id: String(i + 1), category_name: name, parent_id: 0 }))
+        : cats('Live', 12),
+    ),
+  get_live_streams: (res, url) =>
     streamArray(res, N, (i) => ({
       num: i + 1,
       name: `Chaîne ${i + 1}`,
@@ -39,7 +46,7 @@ const actions = {
       stream_icon: `${base}/logo/${i}.png`,
       epg_channel_id: `ch${i}.fr`,
       added: '1700000000',
-      category_id: String((i % 12) + 1),
+      category_id: String((i % (url.searchParams.get('username') === 'langs' ? 3 : 12)) + 1),
       tv_archive: i % 10 === 0 ? 1 : 0,
       tv_archive_duration: i % 10 === 0 ? '7' : 0,
     })),
@@ -145,7 +152,8 @@ const server = http.createServer((req, res) => {
     return res.end();
   }
   if (url.pathname === '/player_api.php') {
-    const ok = url.searchParams.get('username') === 'demo' && url.searchParams.get('password') === 'demo';
+    const user = url.searchParams.get('username');
+    const ok = (user === 'demo' || user === 'langs') && url.searchParams.get('password') === 'demo';
     if (!ok) return sendJson(res, { user_info: { auth: 0 } });
     const action = url.searchParams.get('action');
     if (!action) {

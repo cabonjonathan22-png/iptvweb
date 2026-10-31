@@ -12,6 +12,7 @@ export const session = {
     playerMode: 'auto',
     livePreview: true,
     hasPin: false,
+    contentLangs: [],
   } as TvSettings,
   unlock: null as string | null,
   unlockUntil: 0,

@@ -1,5 +1,6 @@
 import type {
   ContentKindApi,
+  ContentLanguage,
   EpgGridRow,
   EpgNowNext,
   HomeResponse,
@@ -104,6 +105,7 @@ export function createTvApi(transport: Transport, getToken: () => string | null,
       call<{ ok: true }>('PUT', '/api/tv/progress', { kind, id, position, duration }),
     setFavorite: (kind: ContentKindApi, id: number, on: boolean) =>
       call<{ ok: true }>('POST', '/api/tv/favorites', { kind, id, on }),
+    languages: () => call<ContentLanguage[]>('GET', '/api/tv/languages'),
     settings: () => call<TvSettings>('GET', '/api/tv/settings'),
     saveSettings: (s: Partial<Omit<TvSettings, 'hasPin'>>) => call<TvSettings>('PUT', '/api/tv/settings', s),
     /** Vérifie le PIN : renvoie un jeton de déverrouillage valable 1 h. */

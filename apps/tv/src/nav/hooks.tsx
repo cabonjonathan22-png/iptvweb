@@ -1,7 +1,7 @@
 import { createContext, type ComponentChildren } from 'preact';
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { focus, type FocusCallbacks } from './focus';
-import type { KeyAction } from './keys';
+import type { Action, KeyAction } from './keys';
 
 /* -------------------------------------------------------------- Couches */
 
@@ -62,6 +62,7 @@ export function useFocusable<T extends HTMLElement = HTMLDivElement>(opts: UseFo
 
     // Télécommandes pointeur (Magic Remote…) : survol = focus, clic = OK.
     const onEnter = () => focus.focus(id);
+    el.addEventListener('touchstart', onEnter, { passive: true });
     const onClick = () => {
       focus.focus(id);
       focus.select();
@@ -69,6 +70,7 @@ export function useFocusable<T extends HTMLElement = HTMLDivElement>(opts: UseFo
     el.addEventListener('mouseenter', onEnter);
     el.addEventListener('click', onClick);
     return () => {
+      el.removeEventListener('touchstart', onEnter);
       el.removeEventListener('mouseenter', onEnter);
       el.removeEventListener('click', onClick);
       unsub();
@@ -85,6 +87,22 @@ export type KeyHandler = (k: KeyAction) => boolean;
 
 /** Pile de handlers : le plus récemment monté est consulté en premier. */
 export const keyHandlers: KeyHandler[] = [];
+
+let defaultKey: ((k: KeyAction) => void) | null = null;
+/** Comportement par défaut (navigation, OK, Retour), installé par l'App. */
+export function setDefaultKeyHandler(fn: (k: KeyAction) => void) {
+  defaultKey = fn;
+}
+
+export function dispatchKey(k: KeyAction) {
+  for (let i = keyHandlers.length - 1; i >= 0; i--) if (keyHandlers[i]!(k)) return;
+  if (defaultKey) defaultKey(k);
+}
+
+/** Envoie une action comme si elle venait de la télécommande (souris, tactile). */
+export function sendKey(action: Action) {
+  dispatchKey({ action, repeat: false });
+}
 
 export function useKeyHandler(fn: KeyHandler, enabled = true) {
   const ref = useRef(fn);

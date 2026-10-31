@@ -336,7 +336,11 @@ export function LiveScreen({ params }: { params?: Record<string, unknown> }) {
           </div>
 
           <div class="col-preview">
-            <div class="preview-box" style={{ width: PREVIEW.w + 'px', height: PREVIEW.h + 'px' }}>
+            <div
+              class="preview-box"
+              style={{ width: PREVIEW.w + 'px', height: PREVIEW.h + 'px' }}
+              onClick={() => focused && openFull(focused)}
+            >
               {!playing || player.view.mode !== 'preview' ? (
                 <div class="preview-placeholder">
                   {focused ? <Img key={'p' + focused.id} src={focused.logo} name={focused.name} class="preview-logo" /> : null}
@@ -381,8 +385,10 @@ export function LiveScreen({ params }: { params?: Record<string, unknown> }) {
                 )}
                 <p class="hint preview-hint">
                   <span class="key-chip">OK</span>Plein écran
-                  <span class="dot dot-red" />
-                  {favs[focused.id] ? 'Retirer des favoris' : 'Favori'}
+                  <span class="hint-fav" onClick={() => toggleFav(focused)}>
+                    <span class="dot dot-red" />
+                    {favs[focused.id] ? 'Retirer des favoris' : 'Favori'}
+                  </span>
                 </p>
               </div>
             )}

@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     .select(channelColumns)
     .from(schema.channels)
     .leftJoin(schema.categories, eq(schema.categories.id, schema.channels.categoryId))
-    .where(visibleChannels(ctx.playlist.id, ctx.lockedOk, eq(schema.channels.num, num)))
+    .where(visibleChannels(ctx.playlist.id, ctx, eq(schema.channels.num, num)))
     .orderBy(asc(schema.channels.id))
     .limit(1);
   return json({ channel: row ? toTvChannel(row, ctx.origin) : null });

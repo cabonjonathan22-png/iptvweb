@@ -1,0 +1,967 @@
+/*
+ * Interface téléphone et tablette. Contrairement à la scène TV (1920×1080 mise
+ * à l'échelle), tout est en pixels réels, avec défilement natif, et les
+ * navigateurs visés sont récents.
+ */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --tabs-h: 56px;
+}
+.ui-touch body {
+  font-size: 15px;
+  line-height: 1.4;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+.ui-touch input,
+.ui-touch select {
+  -webkit-user-select: text;
+  user-select: text;
+  font: inherit;
+}
+.ui-touch button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.ui-touch a {
+  color: inherit;
+  text-decoration: none;
+}
+.ui-touch h1,
+.ui-touch h2,
+.ui-touch p {
+  margin: 0;
+}
+.ui-touch :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.ui-touch .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.ui-touch .logo-name {
+  font-size: 20px;
+  font-weight: 700;
+}
+.ui-touch .img {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+.ui-touch .img img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ui-touch .img-initials {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------------ Cadre */
+
+.m-main {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tabs-h) + var(--sab));
+}
+.m-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg);
+}
+.m-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--sat);
+  padding-left: var(--sal);
+  padding-right: var(--sar);
+}
+.m-fill {
+  flex: 1;
+  min-height: 0;
+}
+.m-scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.m-tabs {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  height: calc(var(--tabs-h) + var(--sab));
+  padding: 0 var(--sar) var(--sab) var(--sal);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+.ui-touch .m-tab {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--muted);
+  font-size: 10.5px;
+  text-align: center;
+}
+.ui-touch .m-tab.is-on {
+  color: var(--accent);
+}
+.m-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 52px;
+  padding: 6px 16px;
+}
+.m-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 20px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ui-touch .m-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-left: -12px;
+}
+.m-home-head {
+  padding: 12px 16px 4px;
+}
+
+/* --------------------------------------------------------------- Éléments */
+
+.ui-touch .m-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-weight: 600;
+  text-align: center;
+}
+.ui-touch .m-btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.ui-touch .m-btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+.ui-touch .m-danger {
+  color: var(--danger);
+}
+.ui-touch .m-link {
+  color: var(--accent);
+  font-weight: 600;
+  min-height: 44px;
+  padding: 0 4px;
+}
+.m-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.m-muted {
+  color: var(--muted);
+}
+.m-small {
+  font-size: 13px;
+}
+.m-error {
+  color: var(--danger);
+  margin: 8px 0;
+}
+.m-label {
+  margin: 12px 0 6px;
+  font-weight: 600;
+}
+.m-spinner {
+  width: 32px;
+  height: 32px;
+  margin: 40px auto;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: m-spin 0.9s linear infinite;
+}
+@keyframes m-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.m-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--muted);
+}
+.m-empty h2 {
+  color: var(--fg);
+  font-size: 18px;
+}
+.m-skeleton {
+  background: var(--surface);
+  border-radius: 12px;
+  margin: 6px;
+  height: calc(100% - 12px);
+}
+.m-bar {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+.m-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.m-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.m-chips-scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ui-touch .m-chip {
+  flex: none;
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.ui-touch .m-chip.is-on {
+  background: var(--accent);
+  color: #fff;
+}
+.ui-touch .m-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: none;
+  min-height: 44px;
+  margin: 0 16px 8px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  font-weight: 600;
+}
+.m-picker span:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Panneau remontant */
+.m-sheet-wrap {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+.m-sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 560px;
+  max-height: 80%;
+  padding-bottom: var(--sab);
+  border-radius: 18px 18px 0 0;
+  background: var(--surface);
+}
+.m-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.m-sheet-head h2 {
+  font-size: 17px;
+}
+.m-sheet-body {
+  overflow-y: auto;
+  padding: 12px 16px 16px;
+}
+.m-list {
+  margin: 0 -16px;
+}
+.ui-touch .m-list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+}
+.ui-touch .m-list-item.is-on {
+  color: var(--accent);
+  font-weight: 600;
+}
+.m-pin {
+  display: block;
+  width: 180px;
+  margin: 14px auto;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 28px !important;
+  letter-spacing: 14px;
+  text-align: center;
+}
+.m-steps {
+  margin: 0;
+  padding-left: 22px;
+}
+.m-steps li {
+  margin: 8px 0;
+}
+
+/* ------------------------------------------------------------ Liste virtuelle */
+
+.m-win {
+  position: relative;
+}
+.m-win-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.m-ch {
+  display: flex;
+  align-items: center;
+  height: 68px;
+  padding: 0 4px 0 16px;
+}
+.m-ch.is-active {
+  background: var(--surface-2);
+}
+.ui-touch .m-ch-main {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ui-touch .m-ch-logo {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+}
+.m-ch-logo img {
+  object-fit: contain !important;
+}
+.m-ch-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.m-ch-name,
+.m-ch-epg {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-ch-name {
+  font-weight: 600;
+}
+.m-ch-num {
+  margin-right: 6px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.m-ch-epg {
+  color: var(--muted);
+  font-size: 13px;
+}
+.ui-touch .m-fav {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  color: var(--muted);
+  font-size: 22px;
+  text-align: center;
+}
+.ui-touch .m-fav.is-on {
+  color: var(--accent);
+}
+
+/* -------------------------------------------------------- Jaquettes, rangées */
+
+.ui-touch .m-poster {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+}
+.m-poster-img {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding-bottom: 150%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.m-poster-img .m-img-fill,
+.m-ep-thumb .m-img-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.m-poster-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+.m-poster-name,
+.m-poster-meta {
+  display: block;
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+.m-poster-name {
+  font-weight: 600;
+}
+.m-poster-meta {
+  margin-top: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.m-row {
+  margin-top: 16px;
+}
+.m-row-title {
+  padding: 0 16px 6px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.m-row-scroll {
+  display: flex;
+  overflow-x: auto;
+  padding: 0 10px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.m-row-scroll::-webkit-scrollbar,
+.m-chips-scroll::-webkit-scrollbar {
+  display: none;
+}
+.ui-touch .m-row-scroll .m-poster {
+  flex: none;
+  width: 124px;
+  height: auto;
+}
+.ui-touch .m-tile {
+  flex: none;
+  width: 104px;
+  padding: 6px;
+  text-align: center;
+}
+.ui-touch .m-tile-logo {
+  width: 92px;
+  height: 64px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+.m-tile-logo img {
+  object-fit: contain !important;
+}
+.m-tile-name {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-install {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 16px 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+.m-install-text {
+  flex: 1 1 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.m-install-text span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------------ Fiches */
+
+.m-detail-top {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  min-height: 190px;
+  padding: 16px;
+}
+.ui-touch .m-detail-back {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.m-detail-back .img-initials {
+  display: none;
+}
+.m-detail-shade {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to top, var(--bg), rgba(11, 11, 16, 0.45));
+}
+.ui-touch .m-detail-poster {
+  position: relative;
+  flex: none;
+  width: 104px;
+  height: 156px;
+  border-radius: 10px;
+}
+.m-detail-head {
+  position: relative;
+  min-width: 0;
+}
+.m-detail-head h2 {
+  font-size: 20px;
+}
+.m-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 16px 24px;
+}
+.ui-touch .m-ep {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 0;
+}
+.m-ep-thumb {
+  position: relative;
+  flex: none;
+  width: 128px;
+  height: 72px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.m-ep-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.m-ep-plot {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+}
+.m-search {
+  flex: none;
+  padding: 0 16px 8px;
+}
+.m-search input {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--fg);
+  /* En dessous de 16 px, iOS zoome sur le champ. */
+  font-size: 16px;
+}
+
+/* --------------------------------------------------------------- Réglages */
+
+.m-group {
+  margin: 12px 16px;
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.ui-touch .m-set {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 50px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.m-group .m-set:last-child {
+  border-bottom: 0;
+}
+.m-set span:last-child:not(:first-child) {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-set select {
+  max-width: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  text-align: right;
+}
+.m-set option {
+  color: #000;
+}
+
+/* ---------------------------------------------------------------- Liaison */
+
+.m-pairing {
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: calc(var(--sat) + 24px) 24px 24px;
+  overflow-y: auto;
+  text-align: center;
+}
+.m-pairing h1 {
+  font-size: 22px;
+}
+.m-code {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  color: var(--accent);
+}
+.m-pairing .m-btn {
+  width: 100%;
+  max-width: 340px;
+}
+
+/* ---------------------------------------------------------------- Lecteur */
+
+/* Portrait : vidéo en haut, informations et liste dessous. */
+.ui-touch #video-layer {
+  position: fixed;
+  z-index: 60;
+  left: 0;
+  top: var(--sat);
+  width: 100vw;
+  height: 56.25vw;
+}
+.m-video-on #video-layer {
+  visibility: visible;
+}
+.m-player {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 61;
+  background: transparent;
+}
+.m-player::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--sat);
+  background: #000;
+}
+.m-stage {
+  position: fixed;
+  z-index: 62;
+  left: 0;
+  top: var(--sat);
+  width: 100vw;
+  height: 56.25vw;
+  color: #fff;
+}
+.m-below {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: calc(var(--sat) + 56.25vw);
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--sab);
+  background: var(--bg);
+}
+.m-now {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.m-now h1 {
+  font-size: 18px;
+}
+/* Anneau autour du bouton central (60 px). */
+.m-stage-spin {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  width: 72px;
+  height: 72px;
+  margin: -36px 0 0 -36px;
+  pointer-events: none;
+}
+.m-stage-msg {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.82);
+  text-align: center;
+  font-size: 14px;
+}
+.m-stage-note {
+  position: absolute;
+  top: 56px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 13px;
+}
+.m-controls {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease-out;
+}
+.m-stage.is-shown .m-controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+.m-ctl-top,
+.m-ctl-bottom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+}
+.m-ctl-mid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+.ui-touch .m-ctl {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 44px;
+  font-size: 20px;
+  text-align: center;
+}
+.ui-touch .m-ctl-text {
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.ui-touch .m-ctl-big {
+  width: 52px;
+  height: 52px;
+  font-size: 18px;
+  font-weight: 700;
+}
+.ui-touch .m-ctl-main {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 22px;
+}
+.m-ctl-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-ctl-title small {
+  display: block;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-ctl-bottom {
+  justify-content: space-between;
+}
+.m-live-dot {
+  padding-left: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.m-live-dot::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+.m-time {
+  flex: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.m-seek {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  accent-color: var(--accent);
+}
+
+/* Téléphone en paysage, ou plein écran : la vidéo occupe tout l'écran. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .ui-touch #video-layer,
+  .m-stage {
+    top: 0;
+    height: 100vh;
+  }
+  .m-below {
+    display: none;
+  }
+}
+.m-full #video-layer,
+.m-full .m-stage {
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+}
+.m-full .m-below {
+  display: none;
+}
+
+/* Tablette en paysage : vidéo à gauche, liste à droite. */
+@media (orientation: landscape) and (min-height: 521px) {
+  .ui-touch:not(.m-full) #video-layer,
+  .ui-touch:not(.m-full) .m-stage {
+    width: 66vw;
+    height: 37.125vw;
+  }
+  .ui-touch:not(.m-full) .m-below {
+    top: var(--sat);
+    left: 66vw;
+    border-left: 1px solid var(--line);
+  }
+  /* Programme sous la vidéo, la liste garde toute la hauteur. */
+  .ui-touch:not(.m-full) .m-now {
+    position: fixed;
+    left: 0;
+    width: 66vw;
+    top: calc(var(--sat) + 37.125vw);
+    border-bottom: 0;
+  }
+}

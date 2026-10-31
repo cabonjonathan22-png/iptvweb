@@ -9,7 +9,6 @@ import { requireUser } from '@/auth';
 import { getDb, schema } from '@/lib/db';
 import { decryptJson } from '@/lib/crypto';
 import { ownedPlaylist, TYPE_LABELS } from '@/lib/playlists';
-import { PHASE_LABELS } from '@/lib/sync/runner';
 import { StatusBadge } from '@/components/StatusBadge';
 import { AutoRefresh } from '@/components/AutoRefresh';
 import { Thumb } from '@/components/Thumb';
@@ -17,6 +16,9 @@ import { ConfirmButton } from '@/components/ConfirmButton';
 import { PlaylistEditForm } from '@/components/PlaylistEditForm';
 import { ReuploadForm } from '@/components/ReuploadForm';
 import { TestPlayButton } from '@/components/TestPlayer';
+import { SyncProgress } from '@/components/SyncProgress';
+import { SyncDoneBanner } from '@/components/SyncDoneBanner';
+import { SaveButton } from '@/components/SaveButton';
 import { deletePlaylist, syncPlaylist, updateCategory } from '@/app/actions/playlists';
 
 export const metadata: Metadata = { title: 'Playlist' };
@@ -100,17 +102,17 @@ export default async function PlaylistPage({
             </div>
           ))}
         </dl>
-        {p.status === 'syncing' && job ? (
-          <p className="text-sm text-accent-strong" role="status">
-            {PHASE_LABELS[job.phase] ?? job.phase}
-            {job.cursor > 0 && ' · ' + nf.format(job.cursor) + ' éléments'}
-          </p>
+        {p.status === 'syncing' ? (
+          <SyncProgress type={p.type} phase={job?.phase ?? null} cursor={job?.cursor ?? 0} />
         ) : (
           <form action={syncPlaylist}>
             <input type="hidden" name="id" value={p.id} />
-            <button className="btn-ghost">Synchroniser maintenant</button>
+            <SaveButton className="btn-ghost" pendingLabel="Démarrage…" doneLabel="✓ Lancée">
+              Synchroniser maintenant
+            </SaveButton>
           </form>
         )}
+        <SyncDoneBanner status={p.status} live={p.liveCount} vod={p.vodCount} series={p.seriesCount} />
         {p.status === 'error' && p.lastError && (
           <p role="alert" className="w-full rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
             {p.lastError}

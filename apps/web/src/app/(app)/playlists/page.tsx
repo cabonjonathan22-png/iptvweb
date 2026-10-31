@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requireUser } from '@/auth';
-import { getDb } from '@/lib/db';
+import { and, desc, eq, inArray } from 'drizzle-orm';
+import { getDb, schema } from '@/lib/db';
 import { TYPE_LABELS } from '@/lib/playlists';
 import { StatusBadge } from '@/components/StatusBadge';
 import { AutoRefresh } from '@/components/AutoRefresh';
+import { SyncProgress } from '@/components/SyncProgress';
+import { SyncDoneBanner } from '@/components/SyncDoneBanner';
+import { SaveButton } from '@/components/SaveButton';
 import { ConfirmButton } from '@/components/ConfirmButton';
 import { deletePlaylist, syncPlaylist } from '@/app/actions/playlists';
 
@@ -21,6 +25,18 @@ export default async function PlaylistsPage() {
     where: (p, { eq }) => eq(p.userId, user.id),
     orderBy: (p, { asc }) => asc(p.createdAt),
   });
+
+  // Progression des synchros en cours.
+  const syncing = list.filter((p) => p.status === 'syncing').map((p) => p.id);
+  const j = schema.syncJobs;
+  const jobs = syncing.length
+    ? await db
+        .select({ playlistId: j.playlistId, phase: j.phase, cursor: j.cursor })
+        .from(j)
+        .where(and(inArray(j.playlistId, syncing), inArray(j.status, ['queued', 'running'])))
+        .orderBy(desc(j.createdAt))
+    : [];
+  const jobOf = (id: string) => jobs.find((x) => x.playlistId === id);
 
   return (
     <div className="space-y-8">
@@ -69,14 +85,18 @@ export default async function PlaylistsPage() {
                 ))}
               </dl>
               {p.status === 'error' && p.lastError && <p className="text-sm text-danger">{p.lastError}</p>}
+              {p.status === 'syncing' && (
+                <SyncProgress type={p.type} phase={jobOf(p.id)?.phase ?? null} cursor={jobOf(p.id)?.cursor ?? 0} compact />
+              )}
+              <SyncDoneBanner status={p.status} live={p.liveCount} vod={p.vodCount} series={p.seriesCount} />
               <div className="mt-auto space-y-3">
                 <p className="text-sm text-muted">{p.lastSyncAt ? 'Synchro : ' + df.format(p.lastSyncAt) : 'Jamais synchronisée'}</p>
                 <div className="flex flex-wrap gap-2">
                   <form action={syncPlaylist}>
                     <input type="hidden" name="id" value={p.id} />
-                    <button className="btn-ghost h-9 px-4" disabled={p.status === 'syncing'}>
+                    <SaveButton className="btn-ghost h-9 px-4" disabled={p.status === 'syncing'} pendingLabel="Démarrage…" doneLabel="✓ Lancée">
                       Synchroniser
-                    </button>
+                    </SaveButton>
                   </form>
                   <Link href={`/playlists/${p.id}?tab=settings`} className="btn-ghost h-9 px-4">
                     Modifier

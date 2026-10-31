@@ -9,14 +9,31 @@ import { App } from './app';
 import { applyScale } from './lib/scale';
 import { flags, startCpuThrottle } from './lib/devflags';
 import { mountVideoLayer } from './player/host';
+import { device, isNarrow, isPointerDevice, touchUi } from './lib/device';
+import './lib/install';
+import { installPointerGestures } from './nav/pointer';
+import { player } from './player/engine';
 
 const root = document.getElementById('root')!;
-root.innerHTML = '<div id="frame"><div id="stage"></div></div>';
-const frame = document.getElementById('frame')!;
-const stage = document.getElementById('stage')!;
-if (flags.tvFrame) document.documentElement.className += ' tv-frame';
-applyScale(stage, frame);
-mountVideoLayer(frame);
-if (flags.slow) startCpuThrottle();
+document.documentElement.className += ' device-' + device + (touchUi ? ' ui-touch' : '') + (flags.tvFrame ? ' tv-frame' : '');
 
-render(<App />, stage);
+if (touchUi) {
+  // Chunk à part : les TV ne téléchargent jamais l'interface tactile.
+  import('./mobile/boot').then((m) => m.boot(root));
+} else {
+  root.innerHTML = '<div id="frame"><div id="stage"></div></div>';
+  const frame = document.getElementById('frame')!;
+  const stage = document.getElementById('stage')!;
+  applyScale(stage, frame);
+  mountVideoLayer(frame);
+  if (flags.slow) startCpuThrottle();
+  if (isPointerDevice) installPointerGestures(frame);
+  render(<App />, stage);
+}
+
+// PC : la fenêtre passe d'étroite à large ou l'inverse, on change d'interface (sauf en pleine lecture).
+if (device === 'desktop') {
+  window.addEventListener('resize', () => {
+    if (isNarrow() !== touchUi && !player.src && !/[?&]device=/.test(window.location.search)) window.location.reload();
+  });
+}

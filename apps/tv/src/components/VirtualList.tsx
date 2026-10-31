@@ -74,10 +74,6 @@ export function VirtualList(p: Props) {
       ref={ref}
       class={'vl' + (focused ? ' vl-focused' : '') + (p.class ? ' ' + p.class : '')}
       style={{ height: p.height + 'px' }}
-      onWheel={(e) => {
-        const next = p.index + (e.deltaY > 0 ? 1 : -1);
-        if (next >= 0 && next < p.count) p.onIndex(next);
-      }}
     >
       <div class="vl-inner" style={{ transform: 'translateY(' + -scroll + 'px)', WebkitTransform: 'translateY(' + -scroll + 'px)' }}>
         {rows}

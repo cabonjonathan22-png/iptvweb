@@ -11,6 +11,7 @@ export function toTvSettings(r: Row | null | undefined): TvSettings {
     playerMode: r?.playerMode ?? 'auto',
     livePreview: r?.livePreview ?? true,
     hasPin: !!r?.parentalPinHash,
+    contentLangs: r?.contentLangs ? r.contentLangs.split(',') : [],
   };
 }
 

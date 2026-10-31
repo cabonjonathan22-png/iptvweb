@@ -439,5 +439,7 @@ export const userSettings = pgTable('user_settings', {
   /** Hash scrypt du code PIN parental. */
   parentalPinHash: text('parental_pin_hash'),
   livePreview: boolean('live_preview').notNull().default(true),
+  /** Langues de contenu à afficher, séparées par des virgules ; null = toutes. */
+  contentLangs: text('content_langs'),
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });

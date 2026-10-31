@@ -35,7 +35,7 @@ export async function GET(req: Request) {
       .from(f)
       .innerJoin(ch, eq(ch.id, f.itemId))
       .leftJoin(c, eq(c.id, ch.categoryId))
-      .where(and(eq(f.userId, uid), eq(f.kind, 'live'), eq(ch.playlistId, pid), visibleCategory(ch.categoryId, ctx.lockedOk)))
+      .where(and(eq(f.userId, uid), eq(f.kind, 'live'), eq(ch.playlistId, pid), visibleCategory(ch.categoryId, ctx)))
       .orderBy(f.sortOrder, desc(f.createdAt))
       .limit(30),
     db
@@ -43,21 +43,21 @@ export async function GET(req: Request) {
       .from(w)
       .innerJoin(ch, eq(ch.id, w.itemId))
       .leftJoin(c, eq(c.id, ch.categoryId))
-      .where(and(eq(w.userId, uid), eq(w.kind, 'live'), eq(ch.playlistId, pid), visibleCategory(ch.categoryId, ctx.lockedOk)))
+      .where(and(eq(w.userId, uid), eq(w.kind, 'live'), eq(ch.playlistId, pid), visibleCategory(ch.categoryId, ctx)))
       .orderBy(desc(w.updatedAt))
       .limit(ROW),
     db
       .select({ id: v.id, name: v.name, poster: v.poster, year: v.year, rating: v.rating })
       .from(v)
       .leftJoin(c, eq(c.id, v.categoryId))
-      .where(and(eq(v.playlistId, pid), visibleCategory(v.categoryId, ctx.lockedOk)))
+      .where(and(eq(v.playlistId, pid), visibleCategory(v.categoryId, ctx)))
       .orderBy(sql`${v.addedAt} desc nulls last`, desc(v.id))
       .limit(ROW),
     db
       .select({ id: s.id, name: s.name, poster: s.poster, year: s.year, rating: s.rating })
       .from(s)
       .leftJoin(c, eq(c.id, s.categoryId))
-      .where(and(eq(s.playlistId, pid), visibleCategory(s.categoryId, ctx.lockedOk)))
+      .where(and(eq(s.playlistId, pid), visibleCategory(s.categoryId, ctx)))
       .orderBy(sql`${s.addedAt} desc nulls last`, desc(s.id))
       .limit(ROW),
   ]);
@@ -71,7 +71,7 @@ export async function GET(req: Request) {
           .select({ id: v.id, name: v.name, poster: v.poster, backdrop: v.backdrop })
           .from(v)
           .leftJoin(c, eq(c.id, v.categoryId))
-          .where(and(inArray(v.id, vodIds), eq(v.playlistId, pid), visibleCategory(v.categoryId, ctx.lockedOk)))
+          .where(and(inArray(v.id, vodIds), eq(v.playlistId, pid), visibleCategory(v.categoryId, ctx)))
       : Promise.resolve([]),
     epIds.length
       ? db
@@ -79,7 +79,7 @@ export async function GET(req: Request) {
           .from(e)
           .innerJoin(s, eq(s.id, e.seriesId))
           .leftJoin(c, eq(c.id, s.categoryId))
-          .where(and(inArray(e.id, epIds), eq(e.playlistId, pid), visibleCategory(s.categoryId, ctx.lockedOk)))
+          .where(and(inArray(e.id, epIds), eq(e.playlistId, pid), visibleCategory(s.categoryId, ctx)))
       : Promise.resolve([]),
   ]);
   const vodMap = new Map(vods.map((x) => [x.id, x]));

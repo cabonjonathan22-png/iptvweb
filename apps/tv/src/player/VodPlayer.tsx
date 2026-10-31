@@ -8,6 +8,8 @@ import { ProgressBar } from '../components/Cards';
 import { player } from './engine';
 import { usePlayer } from './usePlayer';
 import { TracksDialog } from './FullPlayer';
+import { PointerControls } from '../components/PointerControls';
+import { isPointerDevice } from '../lib/device';
 
 const OVERLAY_MS = 4000;
 const SAVE_EVERY_MS = 10_000;
@@ -176,7 +178,7 @@ export function VodPlayer({ item, next, onPlayNext, onExit }: Props) {
 
   return (
     <FocusLayer name="vod-player">
-      <div class="player-ui">
+      <div class="player-ui" onClick={isPointerDevice ? show : undefined} onMouseMove={isPointerDevice ? show : undefined}>
         {loading && <div class="spinner spinner-corner" aria-label="Chargement" />}
         {loading && p.reconnect && <div class="osd-reconnect">Reconnexion ({p.reconnect.attempt}/{p.reconnect.max})…</div>}
 
@@ -208,19 +210,39 @@ export function VodPlayer({ item, next, onPlayNext, onExit }: Props) {
           </div>
         )}
 
+        <PointerControls
+          visible={overlay || loading || p.state === 'paused' || !!error}
+          items={[
+            ['← Retour', 'back'],
+            ['−10 s', 'left'],
+            ['❚❚ / ▶', 'playPause'],
+            ['+10 s', 'right'],
+            ['Pistes', 'yellow'],
+            ['Plein écran', 'fullscreen'],
+          ]}
+        />
         <div class={'player-bar vod-bar' + (overlay || loading || p.state === 'paused' || seekTarget !== null ? ' is-visible' : '')}>
           <div class="player-info">
             <div class="player-title">{item.title}</div>
             {item.subtitle && <div class="player-sub">{item.subtitle}</div>}
             <div class="vod-progress">
               <span class="vod-time">{clock(pos)}</span>
-              <ProgressBar value={dur ? pos / dur : 0} />
+              <div
+                class="vod-seek"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  if (dur) player.seekTo(((e.clientX - r.left) / r.width) * dur);
+                }}
+              >
+                <ProgressBar value={dur ? pos / dur : 0} />
+              </div>
               <span class="vod-time">{dur ? clock(dur) : '--:--'}</span>
             </div>
           </div>
           <div class="player-side">
             <div class="player-clock">{p.state === 'paused' ? '❚❚' : '▶'}</div>
-            <div class="player-hints">
+            <div class="player-hints tv-only">
               <span class="key-chip">◀ ▶</span> Avance rapide
               <span class="dot dot-yellow" /> Pistes
             </div>

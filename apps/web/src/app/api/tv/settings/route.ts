@@ -9,6 +9,7 @@ const body = z.object({
   subtitleLang: lang.optional(),
   playerMode: z.enum(['auto', 'hls', 'ts']).optional(),
   livePreview: z.boolean().optional(),
+  contentLangs: z.array(z.string().regex(/^[a-z]{2}$/)).max(20).optional(),
 });
 
 /** Réglages du compte (partagés par toutes les TV de l'utilisateur). */
@@ -23,5 +24,7 @@ export async function PUT(req: Request) {
   if (device instanceof Response) return device;
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return apiError(400, 'bad_request');
-  return json(toTvSettings(await saveSettings(device.userId, parsed.data)));
+  const { contentLangs, ...rest } = parsed.data;
+  const patch = contentLangs ? { ...rest, contentLangs: contentLangs.length ? contentLangs.join(',') : null } : rest;
+  return json(toTvSettings(await saveSettings(device.userId, patch)));
 }

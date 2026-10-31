@@ -32,7 +32,7 @@ const FAV_KIND = new Map<Table, 'live' | 'vod' | 'series'>([
 export async function listQuery(ctx: TvContext, t: Table, category: ListCategory | null) {
   if (category === null) return apiError(400, 'bad_category');
   const c = schema.categories;
-  const parts: (SQL | undefined)[] = [eq(t.playlistId, ctx.playlist.id), visibleCategory(t.categoryId, ctx.lockedOk)];
+  const parts: (SQL | undefined)[] = [eq(t.playlistId, ctx.playlist.id), visibleCategory(t.categoryId, ctx)];
   let order: SQL[];
   if (typeof category === 'number') {
     const db = await getDb();
