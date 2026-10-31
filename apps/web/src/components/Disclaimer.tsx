@@ -11,6 +11,10 @@ export function Disclaimer() {
         <Link href="/legal/terms" className="underline hover:text-fg">
           Conditions d&apos;utilisation
         </Link>
+        {' · '}
+        <Link href="/legal/privacy" className="underline hover:text-fg">
+          Confidentialité
+        </Link>
       </p>
     </footer>
   );
