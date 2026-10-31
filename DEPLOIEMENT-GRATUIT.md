@@ -15,36 +15,44 @@ Alternative pour le proxy : **Render** (`render.yaml`), inscription avec GitHub,
 
 ---
 
-## Ce que tu fais (inscriptions et clics : je ne peux pas créer de comptes à ta place)
+## État actuel
+
+Déjà fait : les projets Vercel `oria-web` et `oria-tv` existent (équipe `voyaj1`, plan Hobby, gratuit), avec leur dossier racine, Node 22 et les variables `NEXT_PUBLIC_APP_URL`, `TV_APP_ORIGINS`, `AUTH_SECRET`, `CREDENTIALS_ENCRYPTION_KEY`, `CRON_SECRET` et `VITE_API_URL`. Rien n'est encore déployé.
+
+## Ce qu'il reste à faire de ton côté
 
 ### 1. Base de données (2 min)
-Dans Vercel → **Storage** → **Create Database** → **Neon** → plan **Free** → nom `oria`. Tu n'as pas besoin de la connecter à un projet : je m'en charge.
+Vercel exige une confirmation humaine pour accepter les conditions de Neon.
+Projet **oria-web** → **Storage** → **Create Database** → **Neon** → plan **Free** → connecter au projet, environnement **Production**. La variable `DATABASE_URL` est ajoutée automatiquement.
 
-### 2. Proxy de flux sur Oracle Cloud (15 min)
+### 2. Déployer (1 commande)
+À la racine du dépôt :
+```bash
+node scripts/deploy.mjs all
+```
+Les migrations s'appliquent pendant le build du dashboard. Adresses : <https://oria-web.vercel.app> (dashboard) et <https://oria-tv.vercel.app> (à ouvrir sur la TV).
+
+### 3. Connexion par e-mail (3 min)
+Inscription sur <https://resend.com> avec l'adresse qui servira à te connecter, **API Keys → Create**, puis :
+```bash
+vercel link --yes --project oria-web --scope voyaj1
+vercel env add AUTH_RESEND_KEY production
+node scripts/deploy.mjs web
+```
+Sans cette clé, aucun e-mail ne part : le lien de connexion n'apparaît que dans les logs Vercel.
+
+### 4. Proxy de flux sur Oracle Cloud (15 min)
+Sans lui, l'interface fonctionne mais les chaînes en `http://` ne se lisent pas.
 1. Inscription sur <https://signup.cloud.oracle.com> (offre « Always Free »).
 2. **Compute → Instances → Create instance** :
    - Image : **Ubuntu 24.04** ;
-   - Shape : **VM.Standard.A1.Flex** (Ampere, 1 OCPU et 6 Go suffisent), sinon VM.Standard.E2.1.Micro ;
+   - Shape : **VM.Standard.A1.Flex** (1 OCPU et 6 Go suffisent), sinon VM.Standard.E2.1.Micro ;
    - **Add SSH keys** : « Generate a key pair », télécharge la clé privée.
 3. **Networking → Virtual cloud networks → (ton VCN) → Security Lists → Default** → *Add Ingress Rules* : source `0.0.0.0/0`, TCP, ports `80,443`.
 4. Connexion à la VM : `ssh -i cle.key ubuntu@<IP publique>`, puis :
    ```bash
    curl -fsSL https://raw.githubusercontent.com/cabonjonathan22-png/iptvweb/main/apps/stream-proxy/deploy/setup.sh | sudo bash
    ```
-5. Le script affiche `STREAM_PROXY_URL` et `STREAM_PROXY_SECRET` : envoie-les-moi.
+5. Le script affiche `STREAM_PROXY_URL` et `STREAM_PROXY_SECRET`. Ajoute-les au projet `oria-web` avec `vercel env add … production`, puis `node scripts/deploy.mjs web`.
 
-### 3. E-mail de connexion (3 min)
-Inscription sur <https://resend.com> avec l'adresse qui servira à te connecter, **API Keys → Create** : envoie-moi la clé (`re_…`).
-(Ou Google : Google Cloud Console → OAuth client « Web application », redirection `https://<ton-app>.vercel.app/api/auth/callback/google`.)
-
----
-
-## Ce que je fais (la CLI Vercel est déjà connectée)
-
-1. Je crée les deux projets Vercel (`oria-web` et `oria-tv`) depuis le dépôt, en monorepo pnpm.
-2. Je génère les secrets (`node scripts/secrets.mjs`) et je configure toutes les variables d'environnement.
-3. Je connecte la base Neon au projet web. Les migrations s'appliquent au build.
-4. Je déploie, je règle `NEXT_PUBLIC_APP_URL`, `TV_APP_ORIGINS` et `VITE_API_URL` avec les URL `*.vercel.app`, puis je redéploie.
-5. Je vérifie : santé du proxy, création de compte, pairing, synchro d'une playlist de test, lecture via le proxy.
-
-Sans nom de domaine, les adresses seront du type `oria-web-xxx.vercel.app` (dashboard) et `oria-tv-xxx.vercel.app` (à ouvrir sur la TV).
+Le secret s'affiche dans ton terminal : évite de le coller dans un endroit public.

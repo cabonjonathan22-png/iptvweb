@@ -10,9 +10,11 @@
     "test": "pnpm -r test",
     "test:e2e": "pnpm --filter @iptv/e2e e2e",
     "dev:proxy": "cd apps/stream-proxy && node --env-file-if-exists=.env server.ts",
-    "dev:mock": "node e2e/mock-iptv.mjs"
+    "dev:mock": "node e2e/mock-iptv.mjs",
+    "deploy": "node scripts/deploy.mjs all"
   },
   "engines": {
     "node": ">=20.19"
-  }
+  },
+  "packageManager": "pnpm@12.8.1"
 }
