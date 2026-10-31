@@ -3,6 +3,7 @@ import { requireUser } from '@/auth';
 import { getDb } from '@/lib/db';
 import { LinkForm } from '@/components/LinkForm';
 import { ConfirmButton } from '@/components/ConfirmButton';
+import { SaveButton } from '@/components/SaveButton';
 import { assignPlaylist, renameDevice, revokeDevice } from '@/app/actions/devices';
 
 export const metadata: Metadata = { title: 'Appareils' };
@@ -67,7 +68,7 @@ export default async function DevicesPage({ searchParams }: { searchParams: Prom
                       maxLength={60}
                       className="input h-10 min-w-0 flex-1 font-semibold"
                     />
-                    <button className="btn-ghost h-10">Renommer</button>
+                    <SaveButton className="btn-ghost h-10">Renommer</SaveButton>
                   </form>
                 </div>
                 <p className="text-sm text-muted">
@@ -91,9 +92,9 @@ export default async function DevicesPage({ searchParams }: { searchParams: Prom
                         </option>
                       ))}
                     </select>
-                    <button className="btn-ghost h-10" disabled={playlists.length === 0}>
+                    <SaveButton className="btn-ghost h-10" disabled={playlists.length === 0}>
                       Assigner
-                    </button>
+                    </SaveButton>
                   </form>
                   <form action={revokeDevice}>
                     <input type="hidden" name="id" value={d.id} />

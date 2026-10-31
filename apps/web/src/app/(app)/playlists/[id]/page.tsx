@@ -30,7 +30,7 @@ const KINDS: { id: Kind; label: string }[] = [
 const TABS = [
   { id: 'categories', label: 'Catégories' },
   { id: 'preview', label: 'Aperçu' },
-  { id: 'settings', label: 'Réglages' },
+  { id: 'settings', label: 'Modifier' },
 ] as const;
 type Tab = (typeof TABS)[number]['id'];
 

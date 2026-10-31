@@ -5,7 +5,8 @@ import { getDb } from '@/lib/db';
 import { TYPE_LABELS } from '@/lib/playlists';
 import { StatusBadge } from '@/components/StatusBadge';
 import { AutoRefresh } from '@/components/AutoRefresh';
-import { syncPlaylist } from '@/app/actions/playlists';
+import { ConfirmButton } from '@/components/ConfirmButton';
+import { deletePlaylist, syncPlaylist } from '@/app/actions/playlists';
 
 export const metadata: Metadata = { title: 'Playlists' };
 
@@ -68,14 +69,25 @@ export default async function PlaylistsPage() {
                 ))}
               </dl>
               {p.status === 'error' && p.lastError && <p className="text-sm text-danger">{p.lastError}</p>}
-              <div className="mt-auto flex items-center justify-between gap-3 text-sm text-muted">
-                <span>{p.lastSyncAt ? 'Synchro : ' + df.format(p.lastSyncAt) : 'Jamais synchronisée'}</span>
-                <form action={syncPlaylist}>
-                  <input type="hidden" name="id" value={p.id} />
-                  <button className="btn-ghost h-9 px-4" disabled={p.status === 'syncing'}>
-                    Synchroniser
-                  </button>
-                </form>
+              <div className="mt-auto space-y-3">
+                <p className="text-sm text-muted">{p.lastSyncAt ? 'Synchro : ' + df.format(p.lastSyncAt) : 'Jamais synchronisée'}</p>
+                <div className="flex flex-wrap gap-2">
+                  <form action={syncPlaylist}>
+                    <input type="hidden" name="id" value={p.id} />
+                    <button className="btn-ghost h-9 px-4" disabled={p.status === 'syncing'}>
+                      Synchroniser
+                    </button>
+                  </form>
+                  <Link href={`/playlists/${p.id}?tab=settings`} className="btn-ghost h-9 px-4">
+                    Modifier
+                  </Link>
+                  <form action={deletePlaylist} className="ml-auto">
+                    <input type="hidden" name="id" value={p.id} />
+                    <ConfirmButton message={`Supprimer « ${p.name} » ?`} className="btn-danger h-9 px-4">
+                      Supprimer
+                    </ConfirmButton>
+                  </form>
+                </div>
               </div>
             </li>
           ))}

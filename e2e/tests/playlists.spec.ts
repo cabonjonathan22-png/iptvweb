@@ -66,3 +66,22 @@ test('M3U : upload de fichier compressé, erreur lisible sur une page HTML', asy
   await page.getByRole('button', { name: 'Ajouter la playlist' }).click();
   await expect(page.locator('p[role=alert]')).toContainText('page web', { timeout: 60_000 });
 });
+
+test('lien get.php converti en Xtream ; modifier et supprimer depuis la liste', async ({ page }) => {
+  await login(page, 'cards@example.com');
+  await openNew(page, 'Lien M3U');
+  await page.getByLabel('Nom').fill('Panel');
+  await page.getByLabel('URL de la playlist').fill(MOCK + '/get.php?username=demo&password=demo&type=m3u_plus');
+  await page.getByRole('button', { name: 'Ajouter la playlist' }).click();
+  await expect(page.getByRole('heading', { name: 'Panel' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/^Xtream Codes/)).toBeVisible();
+
+  await page.goto(WEB + '/playlists');
+  await page.getByRole('link', { name: 'Modifier' }).click();
+  await expect(page.getByLabel('Serveur', { exact: true })).toHaveValue(/localhost:4010/);
+
+  await page.goto(WEB + '/playlists');
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Supprimer' }).click();
+  await expect(page.getByText('Aucune playlist')).toBeVisible({ timeout: 15_000 });
+});

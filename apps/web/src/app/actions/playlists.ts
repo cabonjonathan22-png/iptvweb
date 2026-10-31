@@ -4,7 +4,7 @@ import { and, count, eq, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
-import { normalizeServer, type XtreamCreds } from '@iptv/shared';
+import { normalizeServer, xtreamFromM3uUrl, type XtreamCreds } from '@iptv/shared';
 import { currentUser } from '@/auth';
 import { getDb, schema } from '@/lib/db';
 import { decryptJson, encryptJson } from '@/lib/crypto';
@@ -68,7 +68,13 @@ export async function createPlaylist(_prev: PlaylistFormState, fd: FormData): Pr
       const url = field(fd, 'url');
       if (!url) return { error: "Saisissez l'URL de la playlist.", values: echo(fd) };
       await assertPublicUrl(url);
-      values = { userId: user.id, name, type: 'm3u_url', sourceUrl: url, epgUrl };
+      // Lien get.php d'un panel : l'API Xtream est bien plus fiable que la génération du M3U
+      // (souvent très lente). Repli sur le M3U si le panel ne répond pas à l'API.
+      const fromUrl = xtreamFromM3uUrl(url);
+      const account = fromUrl ? await checkXtreamAccount(fromUrl).catch(() => null) : null;
+      values = account
+        ? { userId: user.id, name, type: 'xtream', credentialsEnc: encryptJson(fromUrl!), epgUrl, epgAuto: !epgUrl, meta: account }
+        : { userId: user.id, name, type: 'm3u_url', sourceUrl: url, epgUrl };
     } else if (type.data === 'm3u_file') {
       values = { userId: user.id, name, type: 'm3u_file', epgUrl };
     } else {
