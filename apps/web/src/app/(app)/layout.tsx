@@ -28,6 +28,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Link href="/devices" className="rounded-lg px-3 py-2 text-fg hover:bg-surface-2">
               Appareils
             </Link>
+            <Link href="/settings" className="rounded-lg px-3 py-2 text-fg hover:bg-surface-2">
+              Réglages
+            </Link>
             <form action={logout}>
               <button className="rounded-lg px-3 py-2 text-muted hover:bg-surface-2 hover:text-fg">
                 Déconnexion

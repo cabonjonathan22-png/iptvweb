@@ -86,7 +86,9 @@ export default async function PlaylistPage({
           {TYPE_LABELS[p.type]}
           {p.lastSyncAt && ' · dernière synchro ' + df.format(p.lastSyncAt)}
           {p.meta.expiresAt ? ' · abonnement jusqu’au ' + new Date(p.meta.expiresAt).toLocaleDateString('fr-FR') : ''}
+          {p.meta.epgPrograms !== undefined && ' · guide TV : ' + nf.format(p.meta.epgPrograms) + ' programmes'}
         </p>
+        {p.meta.epgError && <p className="mt-1 text-sm text-danger">{p.meta.epgError}</p>}
       </div>
 
       <section className="card flex flex-wrap items-center gap-4">

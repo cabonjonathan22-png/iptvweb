@@ -40,3 +40,29 @@ export function generateM3u(o: FixtureOptions): string {
 }
 
 const pad = (n: number) => (n < 10 ? '0' + n : String(n));
+
+/** Guide XMLTV factice : programmes de 30 min pour `channels` chaînes chXX.fr. */
+export function generateXmltv(o: { channels: number; hours: number; start: number }): string {
+  const fmt = (t: number) => {
+    const d = new Date(t);
+    const p2 = (n: number) => (n < 10 ? '0' + n : String(n));
+    return (
+      d.getUTCFullYear() + p2(d.getUTCMonth() + 1) + p2(d.getUTCDate()) + p2(d.getUTCHours()) + p2(d.getUTCMinutes()) + '00 +0000'
+    );
+  };
+  const out: string[] = ['<?xml version="1.0" encoding="UTF-8"?>', '<tv generator-info-name="oria-fixture">'];
+  for (let c = 0; c < o.channels; c++) {
+    out.push('<channel id="ch' + c + '.fr"><display-name>Chaîne ' + (c + 1) + '</display-name></channel>');
+  }
+  for (let c = 0; c < o.channels; c++) {
+    for (let i = 0; i < o.hours * 2; i++) {
+      const s = o.start + i * 1_800_000;
+      out.push(
+        '<programme start="' + fmt(s) + '" stop="' + fmt(s + 1_800_000) + '" channel="ch' + c + '.fr">' +
+          '<title lang="fr">Programme ' + (i + 1) + ' &amp; co</title><desc lang="fr">Description du programme ' + (i + 1) + '.</desc></programme>',
+      );
+    }
+  }
+  out.push('</tv>');
+  return out.join('\n');
+}

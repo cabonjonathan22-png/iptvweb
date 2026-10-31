@@ -136,6 +136,9 @@ export interface PlaylistMeta {
   headerEpgUrl?: string;
   /** Nom du fichier uploadé. */
   fileName?: string;
+  /** Résultat de la dernière synchro du guide TV. */
+  epgPrograms?: number;
+  epgError?: string | null;
 }
 
 /** Fichier M3U uploadé, stocké compressé (gzip) : privé, sans service de stockage externe. */
@@ -277,6 +280,9 @@ export const vodItems = pgTable(
     containerExt: text('container_ext'),
     streamUrl: text('stream_url'),
     tmdbId: integer('tmdb_id'),
+    director: text('director'),
+    /** Fiche détaillée chargée (get_vod_info / TMDB) : une seule fois par film. */
+    detailsFetchedAt: ts('details_fetched_at'),
     addedAt: ts('added_at'),
     sortOrder: integer('sort_order').notNull().default(0),
     syncGen: syncGen(),

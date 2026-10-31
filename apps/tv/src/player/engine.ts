@@ -15,6 +15,7 @@
  */
 import type { StreamType } from '@iptv/shared';
 import { flags } from '../lib/devflags';
+import { session } from '../lib/session';
 
 export interface Source {
   url: string;
@@ -23,7 +24,7 @@ export interface Source {
   startAt?: number;
 }
 
-export type PlayState = 'idle' | 'loading' | 'playing' | 'paused' | 'buffering' | 'error';
+export type PlayState = 'idle' | 'loading' | 'playing' | 'paused' | 'buffering' | 'error' | 'ended';
 
 export interface PlayerError {
   kind: 'network' | 'unsupported' | 'media';
@@ -44,8 +45,8 @@ const STALL_MS = 12_000;
 
 const MESSAGES = {
   network: 'La chaîne ne répond pas. Le flux est peut-être hors ligne ou votre abonnement saturé.',
-  unsupported: 'Ce format vidéo n’est pas pris en charge par le navigateur de votre TV.',
-  mkv: 'Ce film est au format MKV, que le navigateur de votre TV ne sait pas lire. Essayez une autre version si votre fournisseur en propose.',
+  unsupported: 'Ce fichier n’a pas pu être lu : format non pris en charge par votre TV, ou fichier indisponible chez votre fournisseur.',
+  mkv: 'Ce fichier MKV n’a pas pu être lu : le navigateur de votre TV ne gère souvent pas ce format (ou le fichier est indisponible). Essayez une autre version si votre fournisseur en propose.',
   media: 'Le flux vidéo est illisible (erreur de décodage).',
 };
 
@@ -93,7 +94,9 @@ class Engine {
     v.addEventListener('error', () => this.onNativeError());
     v.addEventListener('ended', () => {
       if (this.src && this.src.live) this.scheduleRetry('network');
+      else if (this.src) this.set('ended');
     });
+    v.addEventListener('loadedmetadata', () => this.applyLangPrefs());
   }
 
   subscribe(fn: () => void): () => void {
@@ -150,6 +153,53 @@ class Engine {
     if (!v || !this.src) return;
     if (v.paused) v.play().catch(() => undefined);
     else v.pause();
+  }
+
+  /** Position et durée courantes (secondes ; durée null si inconnue / direct). */
+  position(): number {
+    return this.video ? this.video.currentTime : 0;
+  }
+
+  duration(): number | null {
+    const d = this.video ? this.video.duration : NaN;
+    return isFinite(d) && d > 0 ? d : null;
+  }
+
+  seekTo(seconds: number) {
+    const v = this.video;
+    if (!v || !this.src || this.src.live) return;
+    const d = this.duration();
+    v.currentTime = Math.max(0, d ? Math.min(d - 1, seconds) : seconds);
+  }
+
+  /** Pistes audio / sous-titres selon les langues préférées du compte. */
+  private applyLangPrefs() {
+    const { audioLang, subtitleLang } = session.settings;
+    const match = (lang: string | undefined, want: string | null) =>
+      !!want && !!lang && lang.toLowerCase().slice(0, 2) === want.slice(0, 2);
+    if (this.hls) {
+      const audio: any[] = this.hls.audioTracks || [];
+      const ai = audio.findIndex((t) => match(t.lang, audioLang));
+      if (ai >= 0 && ai !== this.hls.audioTrack) this.hls.audioTrack = ai;
+      const subs: any[] = this.hls.subtitleTracks || [];
+      const si = subs.findIndex((t) => match(t.lang, subtitleLang));
+      if (si >= 0) {
+        this.hls.subtitleTrack = si;
+        this.hls.subtitleDisplay = true;
+      }
+      return;
+    }
+    const v = this.video as any;
+    if (!v) return;
+    if (v.audioTracks && audioLang) {
+      let found = -1;
+      for (let i = 0; i < v.audioTracks.length; i++) if (match(v.audioTracks[i].language, audioLang)) found = i;
+      if (found >= 0) for (let i = 0; i < v.audioTracks.length; i++) v.audioTracks[i].enabled = i === found;
+    }
+    if (subtitleLang) {
+      const tt = v.textTracks as TextTrackList;
+      for (let i = 0; i < tt.length; i++) if (match(tt[i]!.language, subtitleLang)) tt[i]!.mode = 'showing';
+    }
   }
 
   seekBy(seconds: number) {
@@ -304,8 +354,14 @@ class Engine {
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
       if (s === this.session) v.play().catch(() => undefined);
     });
-    hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => this.emit());
-    hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => this.emit());
+    hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+      this.applyLangPrefs();
+      this.emit();
+    });
+    hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
+      this.applyLangPrefs();
+      this.emit();
+    });
     hls.loadSource(src.url);
     hls.attachMedia(v);
   }

@@ -11,13 +11,26 @@ import { Dialog } from './components/Dialog';
 import { PairingScreen } from './screens/Pairing';
 import { HomeScreen } from './screens/Home';
 import { LiveScreen } from './screens/Live';
+import { GuideScreen } from './screens/Guide';
+import { BrowseScreen } from './screens/Browse';
+import { MovieDetailScreen } from './screens/MovieDetail';
+import { SeriesDetailScreen } from './screens/SeriesDetail';
+import { SearchScreen } from './screens/Search';
+import { session } from './lib/session';
 import { SettingsScreen } from './screens/Settings';
 import { KeyDebugScreen } from './screens/KeyDebug';
 
-const SCREENS: { [K in ScreenName]: () => preact.JSX.Element } = {
+type ScreenProps = { params?: Record<string, unknown> };
+const SCREENS: { [K in ScreenName]: (p: ScreenProps) => preact.JSX.Element } = {
   pairing: PairingScreen,
   home: HomeScreen,
   live: LiveScreen,
+  guide: GuideScreen,
+  movies: BrowseScreen,
+  series: BrowseScreen,
+  movie: MovieDetailScreen,
+  seriesDetail: SeriesDetailScreen,
+  search: SearchScreen,
   settings: SettingsScreen,
   keydebug: KeyDebugScreen,
 };
@@ -65,6 +78,11 @@ export function App() {
           .me()
           .then((m) => {
             setMe(m);
+            // Réglages du compte (langues, aperçu, PIN…) : en arrière-plan.
+            api
+              .settings()
+              .then((st) => (session.settings = st))
+              .catch(() => undefined);
             setBootError(null);
             const top = stackRef.current[stackRef.current.length - 1];
             if (!top || top.name === 'pairing') reset('home');
@@ -159,7 +177,7 @@ export function App() {
     <AppCtx.Provider value={ctx}>
       {Screen && top && (
         <FocusLayer name={top.key} base key={top.key}>
-          <Screen />
+          <Screen params={top.params} />
         </FocusLayer>
       )}
       {!Screen && bootError && <BootError message={bootError} onRetry={app.boot} />}

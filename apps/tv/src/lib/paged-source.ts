@@ -1,22 +1,23 @@
-import type { TvChannel } from '@iptv/shared';
-import { api } from '../../lib/api';
+import type { Page } from '@iptv/shared';
+import { ApiError } from './api';
 
 const PAGE = 100;
 
 /**
- * Accès paginé aux chaînes d'une catégorie : les pages (100 chaînes) sont
+ * Accès paginé à une liste serveur (chaînes, films, séries) : les pages sont
  * chargées à la demande quand la liste virtualisée les affiche. La TV ne
- * télécharge jamais la playlist entière.
+ * télécharge jamais une liste entière.
  */
-export class ChannelSource {
+export class PagedSource<T> {
   total = -1;
-  error: string | null = null;
-  private pages: { [page: number]: TvChannel[] } = {};
+  error: ApiError | null = null;
+  private pages: { [page: number]: T[] } = {};
   private pending: { [page: number]: Promise<void> } = {};
   private disposed = false;
 
   constructor(
-    readonly category: number | 'all',
+    readonly key: string,
+    private fetchPage: (offset: number, limit: number) => Promise<Page<T>>,
     private onChange: () => void,
   ) {}
 
@@ -24,18 +25,16 @@ export class ChannelSource {
     this.disposed = true;
   }
 
-  get(i: number): TvChannel | undefined {
+  get(i: number): T | undefined {
     const page = this.pages[Math.floor(i / PAGE)];
     return page ? page[i % PAGE] : undefined;
   }
 
-  /** Charge la page contenant l'index i si besoin. */
   ensure(i: number): Promise<void> {
     const p = Math.floor(i / PAGE);
     if (this.pages[p]) return Promise.resolve();
     if (!this.pending[p]) {
-      this.pending[p] = api
-        .liveChannels(this.category, p * PAGE, PAGE)
+      this.pending[p] = this.fetchPage(p * PAGE, PAGE)
         .then((res) => {
           if (this.disposed) return;
           this.total = res.total;
@@ -43,10 +42,10 @@ export class ChannelSource {
           this.error = null;
           this.onChange();
         })
-        .catch((e: Error) => {
+        .catch((e: ApiError) => {
           delete this.pending[p];
           if (this.disposed) return;
-          this.error = e.message || 'Erreur réseau';
+          this.error = e;
           this.onChange();
         });
     }
@@ -61,8 +60,18 @@ export class ChannelSource {
     }
   }
 
-  async at(i: number): Promise<TvChannel | undefined> {
+  async at(i: number): Promise<T | undefined> {
     await this.ensure(i);
     return this.get(i);
+  }
+
+  /** Éléments déjà chargés dans [from, to). */
+  loaded(from: number, to: number): T[] {
+    const out: T[] = [];
+    for (let i = Math.max(0, from); i < to; i++) {
+      const x = this.get(i);
+      if (x) out.push(x);
+    }
+    return out;
   }
 }

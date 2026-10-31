@@ -1,22 +1,32 @@
 /**
  * Socle des endpoints TV : authentification par device token, playlist
- * assignée, et cache HTTP par ETag (la TV revalide, le serveur répond 304
- * sans recalculer ni renvoyer la liste quand rien n'a changé).
+ * assignée, contrôle parental et cache HTTP par ETag (la TV revalide, le
+ * serveur répond 304 sans recalculer ni renvoyer la liste quand rien n'a changé).
  */
 import { createHash } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, or, type SQL } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import { authenticateDevice, type AuthedDevice } from './device-auth';
 import { getDb, schema } from './db';
 import { apiError } from './http';
+import { isUnlocked } from './parental';
 
 export type Playlist = typeof schema.playlists.$inferSelect;
+export type UserSettings = typeof schema.userSettings.$inferSelect;
 
 export interface TvContext {
   device: AuthedDevice;
   playlist: Playlist;
+  settings: UserSettings | null;
+  /** Contenus des catégories verrouillées accessibles (pas de PIN, ou PIN saisi). */
+  lockedOk: boolean;
   /** Origine de la requête, pour construire des URL absolues (images). */
   origin: string;
+}
+
+export async function deviceOnly(req: Request) {
+  const device = await authenticateDevice(req);
+  return device ?? apiError(401, 'unauthorized');
 }
 
 export async function tvContext(req: Request): Promise<TvContext | NextResponse> {
@@ -24,9 +34,13 @@ export async function tvContext(req: Request): Promise<TvContext | NextResponse>
   if (!device) return apiError(401, 'unauthorized');
   if (!device.playlistId) return apiError(409, 'no_playlist', 'Aucune playlist assignée à cette TV.');
   const db = await getDb();
-  const playlist = await db.query.playlists.findFirst({ where: eq(schema.playlists.id, device.playlistId) });
+  const [playlist, settings] = await Promise.all([
+    db.query.playlists.findFirst({ where: eq(schema.playlists.id, device.playlistId) }),
+    db.query.userSettings.findFirst({ where: eq(schema.userSettings.userId, device.userId) }),
+  ]);
   if (!playlist) return apiError(409, 'no_playlist', 'Aucune playlist assignée à cette TV.');
-  return { device, playlist, origin: publicOrigin(req) };
+  const lockedOk = !settings?.parentalPinHash || isUnlocked(req, device.userId);
+  return { device, playlist, settings: settings ?? null, lockedOk, origin: publicOrigin(req) };
 }
 
 /** Origine publique (derrière le proxy Vercel, l'URL interne peut différer). */
@@ -37,15 +51,28 @@ export function publicOrigin(req: Request): string {
 }
 
 /**
- * Réponse JSON avec ETag dérivé de l'état de la playlist (génération de synchro
- * + dernière modification) et de la requête : 304 si le client est à jour.
+ * Contenu visible : catégorie non masquée, et non verrouillée sauf déverrouillage.
+ * Les contenus sans catégorie restent visibles. À utiliser avec un LEFT JOIN sur categories.
  */
-export async function cachedJson<T>(req: Request, p: Playlist, produce: () => Promise<T>): Promise<NextResponse> {
+export function visibleCategory(categoryId: SQL.Aliased | Parameters<typeof isNull>[0], lockedOk: boolean): SQL {
+  const c = schema.categories;
+  return or(isNull(categoryId), and(eq(c.hidden, false), lockedOk ? undefined : eq(c.locked, false)))!;
+}
+
+export const lockedError = () => apiError(403, 'locked', 'Contenu protégé par le code parental.');
+
+/**
+ * Réponse JSON avec ETag dérivé de l'état de la playlist (génération de synchro
+ * + dernière modification), du déverrouillage parental et de la requête :
+ * 304 si le client est à jour.
+ */
+export async function cachedJson<T>(req: Request, ctx: TvContext, produce: () => Promise<T>): Promise<NextResponse> {
+  const p = ctx.playlist;
   const url = new URL(req.url);
   const tag =
     'W/"' +
     createHash('sha1')
-      .update([p.id, p.syncGen, p.updatedAt.getTime(), url.pathname, url.search].join('|'))
+      .update([p.id, p.syncGen, p.updatedAt.getTime(), ctx.lockedOk, url.pathname, url.search].join('|'))
       .digest('base64url')
       .slice(0, 20) +
     '"';

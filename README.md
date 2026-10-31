@@ -8,10 +8,24 @@ Lecteur IPTV web pilotable à la télécommande, pensé d'abord pour les Hisense
 |-----|------|-------|---------|
 | `apps/web` | Dashboard + API | Next.js 16, Tailwind 4, Drizzle, Auth.js | `app.mondomaine.com` |
 | `apps/tv` | App TV | Vite 7, Preact, bundle legacy | `tv.mondomaine.com` |
-| `apps/stream-proxy` | Proxy de flux (étape 3) | Node + Docker, sur un VPS | `stream.mondomaine.com` |
-| `packages/shared` | Types, client API, parseurs | TypeScript | — |
+| `apps/stream-proxy` | Proxy de flux | Node + Docker, sur un VPS | `stream.mondomaine.com` |
+| `packages/shared` | Types, client API, parseurs M3U / Xtream / XMLTV | TypeScript | — |
 
-L'avancement et l'architecture détaillée sont dans [PLAN.md](PLAN.md).
+L'architecture et les choix techniques sont détaillés dans [PLAN.md](PLAN.md).
+
+## Fonctionnalités
+
+**App TV** (télécommande uniquement, souris facultative)
+- **Pairing** par code ou QR code, sans saisie de mot de passe sur la TV.
+- **Accueil** : Reprendre la lecture, Chaînes favorites, Récemment regardé, Films ajoutés récemment, Séries.
+- **TV en direct** : catégories, Favoris, liste virtualisée avec programme en cours et sa progression, aperçu après 800 ms, plein écran avec programme en cours et suivant, zapping, saisie du numéro, dernière chaîne, pistes audio et sous-titres.
+- **Guide TV** : grille temporelle virtualisée sur 2 h glissantes, de −1 h à +22 h.
+- **Films et séries** : grilles de jaquettes, fiches détaillées (fournisseur Xtream, puis TMDB en option), reprise de lecture, avance rapide qui accélère quand on reste appuyé, épisode suivant automatique.
+- **Recherche** globale avec clavier virtuel et résultats instantanés.
+- **Réglages** : playlist active, langues audio et sous-titres préférées, aperçu, format du direct, code parental, Debug touches, déliaison.
+- **Robustesse** : reconnexion automatique visible, messages d'erreur explicites avec « Réessayer », jamais d'écran noir muet.
+
+**Dashboard** (mobile-first) : comptes, TV liées (renommer, révoquer, playlist), playlists (Xtream, lien ou fichier M3U, guide XMLTV), statut de synchro, catégories (masquer, renommer, réordonner, verrouiller), aperçu avec lecteur de test, réglages et code parental.
 
 ---
 
@@ -41,7 +55,21 @@ L'app TV se pilote entièrement au clavier : flèches, Entrée (OK), Échap ou R
 | `?slow=1` | Simule une TV bas de gamme : +1,2 s de latence réseau et CPU bridé (~20 ms bloqués par frame) |
 | `?hlsjs=1` | Ignore le HLS natif du navigateur (Chrome récent, Safari) et force hls.js, comme sur la plupart des TV |
 
-**Touches du lecteur (direct)** : ▲/▼ ou CH+/CH- pour zapper, chiffres pour aller à une chaîne, touche verte pour la dernière chaîne, touche jaune pour les pistes audio et sous-titres, OK ou toute touche pour afficher les infos, Retour pour revenir à la liste.
+**Touches de la télécommande**
+
+| Où | Touche | Action |
+|---|---|---|
+| Partout | Flèches / OK / Retour | Navigation, validation, écran précédent (confirmation avant de quitter depuis l'accueil) |
+| Partout | ↑ ↑ ↓ ↓ ← → ← → | Écran caché « Debug touches » |
+| Liste des chaînes | Rouge | Ajouter ou retirer des favoris |
+| Direct plein écran | ▲ ▼ / CH+ CH- | Zapper |
+| Direct plein écran | Chiffres | Aller à la chaîne n° |
+| Direct plein écran | Vert / Rouge / Jaune | Dernière chaîne / Favori / Pistes audio et sous-titres |
+| Film, épisode | ◀ ▶ (maintenues) | Recul / avance de 10 s, puis 30 s, 60 s, 120 s |
+| Film, épisode | OK / Lecture-Pause | Pause, reprise |
+| Recherche, code PIN | Chiffres | Saisie directe |
+
+Au clavier : Entrée = OK, Échap ou Retour arrière = Retour, Page↑/Page↓ = CH+/CH-. Les touches couleur n'existent pas sur un clavier (keyCode 403 à 406).
 
 Les flags restent actifs pour la session. Exemple : `http://localhost:5173/?tv=1&slow=1`.
 
@@ -96,6 +124,7 @@ Toutes les variables sont documentées dans [.env.example](.env.example). Minimu
 | `CREDENTIALS_ENCRYPTION_KEY` | web | Clé AES-256-GCM (32 octets, base64) des identifiants Xtream |
 | `CRON_SECRET` | web | Protège le cron de synchro et les relances internes des jobs |
 | `STREAM_PROXY_URL`, `STREAM_PROXY_SECRET` | web + proxy | Proxy de flux (indispensable en production) |
+| `TMDB_API_KEY` | web | Optionnel : clé v3 ou jeton v4, pour compléter les fiches mal renseignées |
 | `VITE_API_URL` | tv | URL du dashboard/API |
 
 ---
@@ -173,6 +202,17 @@ Cron 12 h ──▶ /api/cron/sync : playlists à rafraîchir + jobs abandonnés
 ```
 
 - **Classification M3U** : chemins Xtream `/live/ /movie/ /series/`, puis extension vidéo + motif `S01E02`, puis mots-clés du `group-title`.
-- **Xtream** : les épisodes (`get_series_info`) et les fiches détaillées (`get_vod_info`) sont chargés à la demande par la TV (étapes 4 et 5).
+- **Xtream** : les épisodes (`get_series_info`, rafraîchis toutes les 6 h) et les fiches détaillées (`get_vod_info`) sont chargés à la première ouverture sur la TV, puis mis en cache en base. TMDB complète les fiches sans synopsis ni affiche.
+- **Guide TV** : phase `epg` de la synchro. Source : l'URL XMLTV saisie, sinon `xmltv.php` (Xtream), sinon `url-tvg` de l'en-tête M3U. Les fichiers `.gz` sont détectés automatiquement. Seuls les programmes des chaînes de la playlist, entre −2 h et +48 h, sont conservés, et le cron purge ceux de plus de 24 h. Une chaîne sans `tvg-id` est rapprochée par son nom.
+- **Contrôle parental** : PIN à 4 chiffres haché (scrypt). Une catégorie verrouillée demande le PIN sur la TV, qui reçoit un jeton valable 1 h. L'API refuse les contenus verrouillés sans ce jeton (listes, fiches, lecture, recherche, accueil). Saisie limitée à 5 essais par tranche de 10 min.
+- **Reprise** : position envoyée toutes les 10 s et à la sortie du lecteur, avec une copie locale sur la TV (50 dernières). Un contenu est « vu » au-delà de 92 %, ou à moins de 2 min de la fin s'il dure plus de 20 min.
+
+## Performance (mesurée au build)
+
+- Bundle TV chargé au démarrage : **~99 Ko gzip** (37 Ko d'app et 62 Ko de polyfills legacy). hls.js (~190 Ko) et mpegts.js (~62 Ko) ne sont chargés qu'à la première lecture qui en a besoin.
+- Le shell HTML s'affiche avant le JS, puis des skeletons pendant le chargement des données. L'accueil arrive en une seule requête.
+- Listes, grilles, rangées et guide sont virtualisés : environ 15 à 30 nœuds par liste, quelle que soit sa taille. Les images hors écran sont démontées, donc libérées.
+- Animations limitées à `transform` et `opacity`. Une seule balise `<video>`, placée hors de la scène mise à l'échelle.
+- Pour simuler une TV d'entrée de gamme sur desktop : `?tv=1&slow=1`.
 - **Personnalisation** : nom, ordre, masquage et verrouillage des catégories sont conservés d'une synchro à l'autre.
 - Révocation depuis le dashboard : le device est supprimé. Au prochain appel, la TV reçoit un 401 et revient à l'écran de pairing.

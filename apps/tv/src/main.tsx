@@ -4,6 +4,7 @@ import '@fontsource/inter/latin-600.css';
 import '@fontsource/inter/latin-700.css';
 import './styles.css';
 import './player.css';
+import './screens.css';
 import { App } from './app';
 import { applyScale } from './lib/scale';
 import { flags, startCpuThrottle } from './lib/devflags';

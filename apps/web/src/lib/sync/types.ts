@@ -16,6 +16,8 @@ export interface PhaseCtx {
   /** Enregistre la progression (éléments traités) et prolonge le bail. */
   checkpoint: (cursor: number) => Promise<void>;
   patchMeta: (m: Partial<PlaylistMeta>) => void;
+  /** Métadonnées courantes (y compris celles découvertes pendant cette synchro). */
+  meta: () => PlaylistMeta;
 }
 
 /** 'next' : phase terminée ; 'continue' : à reprendre dans une nouvelle invocation. */

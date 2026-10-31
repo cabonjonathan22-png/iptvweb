@@ -11,7 +11,7 @@
  * Nécessite ALLOW_PRIVATE_SOURCES=1 côté apps/web (adresse locale).
  */
 import http from 'node:http';
-import { generateM3uLines } from '../packages/shared/src/fixtures.ts';
+import { generateM3uLines, generateXmltv } from '../packages/shared/src/fixtures.ts';
 
 const PORT = Number(process.env.MOCK_PORT || 4010);
 const N = Number(process.env.MOCK_XTREAM_N || 3000);
@@ -55,6 +55,42 @@ const actions = {
       category_id: String((i % 8) + 1),
       container_extension: i % 3 ? 'mp4' : 'mkv',
     })),
+  get_vod_info: (res, url) => {
+    const id = Number(url.searchParams.get('vod_id')) - 50000;
+    sendJson(res, {
+      info: {
+        name: `Film ${id + 1}`,
+        plot: `Synopsis détaillé du film ${id + 1}. Une histoire factice pour tester la fiche.`,
+        cast: 'Acteur A, Actrice B, Acteur C',
+        director: 'Réalisatrice D',
+        genre: 'Aventure, Drame',
+        releasedate: `20${10 + (id % 15)}-06-01`,
+        duration_secs: 5400 + (id % 30) * 60,
+        rating: '7.4',
+        backdrop_path: [`${base}/backdrop/v${id}.jpg`],
+      },
+      movie_data: { stream_id: 50000 + id, container_extension: id % 3 ? 'mp4' : 'mkv' },
+    });
+  },
+  get_series_info: (res, url) => {
+    const sid = Number(url.searchParams.get('series_id'));
+    const episodes = {};
+    for (let season = 1; season <= 2; season++) {
+      episodes[season] = Array.from({ length: 8 }, (_, i) => ({
+        id: String(sid * 100 + season * 10 + i + 1),
+        episode_num: i + 1,
+        title: `Épisode ${i + 1}`,
+        container_extension: 'mp4',
+        season,
+        info: { plot: `Résumé de l'épisode ${i + 1}.`, duration_secs: 2700, movie_image: `${base}/thumb/${sid}-${season}-${i}.jpg` },
+      }));
+    }
+    sendJson(res, {
+      seasons: [{ season_number: 1 }, { season_number: 2 }],
+      info: { name: `Série ${sid - 8999}`, plot: 'Synopsis de la série.', cast: 'Distribution factice', genre: 'Drame', rating: '8.1' },
+      episodes,
+    });
+  },
   get_series_categories: (res) => sendJson(res, cats('Séries', 5)),
   get_series: (res) =>
     streamArray(res, Math.ceil(N / 10), (i) => ({
@@ -77,6 +113,9 @@ function sendJson(res, body, status = 200) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(body));
 }
+
+/** Vidéo MP4 de test publique (10 s), pour la VOD et les épisodes. */
+const TEST_MP4 = process.env.MOCK_TEST_MP4 || 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_5MB.mp4';
 
 /** Flux HLS de test public (Mux), utilisé pour vérifier la lecture réelle. */
 const TEST_HLS = process.env.MOCK_TEST_HLS || 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
@@ -121,7 +160,18 @@ const server = http.createServer((req, res) => {
       });
     }
     const h = actions[action];
-    return h ? h(res) : sendJson(res, []);
+    return h ? h(res, url) : sendJson(res, []);
+  }
+  // VOD / épisodes : redirection vers une vidéo de test.
+  if (/^\/(movie|series)\/[^/]+\/[^/]+\/\d+\.\w+$/.test(url.pathname)) {
+    res.writeHead(302, { Location: TEST_MP4 });
+    return res.end();
+  }
+  // Guide TV : 100 premières chaînes, de -2 h à +24 h.
+  if (url.pathname === '/xmltv.php' || url.pathname === '/epg.xml') {
+    const start = Math.floor(Date.now() / 1_800_000) * 1_800_000 - 2 * 3600_000;
+    res.writeHead(200, { 'Content-Type': 'application/xml' });
+    return res.end(generateXmltv({ channels: 100, hours: 26, start }));
   }
   if (url.pathname === '/html') {
     res.writeHead(200, { 'Content-Type': 'text/html' });

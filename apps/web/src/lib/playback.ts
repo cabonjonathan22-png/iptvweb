@@ -15,6 +15,7 @@ import {
 import { proxiedUrl } from '@iptv/shared/stream-token';
 import { getDb, schema } from './db';
 import { decryptJson } from './crypto';
+import { categoryLocked } from './user-data';
 
 type Playlist = typeof schema.playlists.$inferSelect;
 
@@ -37,13 +38,15 @@ function proxyConfig() {
   return url && secret ? { url, secret } : null;
 }
 
-export type PlaybackError = 'not_found' | 'no_source';
+export type PlaybackError = 'not_found' | 'no_source' | 'locked';
 
 export async function resolvePlayback(
   playlist: Playlist,
   kind: PlayKind,
   id: number,
   mode?: 'hls' | 'ts',
+  /** false : refuse les contenus des catégories verrouillées (contrôle parental). */
+  lockedOk = true,
 ): Promise<PlayResponse | PlaybackError> {
   const db = await getDb();
   const creds = playlist.type === 'xtream' && playlist.credentialsEnc ? decryptJson<XtreamCreds>(playlist.credentialsEnc) : null;
@@ -57,6 +60,7 @@ export async function resolvePlayback(
       where: and(eq(schema.channels.id, id), eq(schema.channels.playlistId, playlist.id)),
     });
     if (!c) return 'not_found';
+    if (!lockedOk && (await categoryLocked(c.categoryId))) return 'locked';
     upstream = creds ? xtreamLiveUrl(creds, c.externalId, mode === 'ts' ? 'ts' : 'm3u8') : c.streamUrl;
     ua = c.httpUserAgent ?? undefined;
     ref = c.httpReferrer ?? undefined;
@@ -65,12 +69,17 @@ export async function resolvePlayback(
       where: and(eq(schema.vodItems.id, id), eq(schema.vodItems.playlistId, playlist.id)),
     });
     if (!v) return 'not_found';
+    if (!lockedOk && (await categoryLocked(v.categoryId))) return 'locked';
     upstream = creds ? xtreamVodUrl(creds, v.externalId, v.containerExt || 'mp4') : v.streamUrl;
   } else {
     const e = await db.query.episodes.findFirst({
       where: and(eq(schema.episodes.id, id), eq(schema.episodes.playlistId, playlist.id)),
     });
     if (!e) return 'not_found';
+    if (!lockedOk) {
+      const s = await db.query.series.findFirst({ columns: { categoryId: true }, where: eq(schema.series.id, e.seriesId) });
+      if (await categoryLocked(s?.categoryId ?? null)) return 'locked';
+    }
     upstream = creds ? xtreamEpisodeUrl(creds, e.externalId, e.containerExt || 'mp4') : e.streamUrl;
   }
   if (!upstream) return 'no_source';

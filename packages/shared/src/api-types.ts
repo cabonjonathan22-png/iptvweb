@@ -68,3 +68,118 @@ export interface PlayResponse {
 }
 
 export type PlayKind = 'live' | 'vod' | 'episode';
+
+/* ------------------------------------------------- Films, séries, épisodes */
+
+export type ContentKindApi = 'live' | 'vod' | 'series';
+
+export interface PosterCard {
+  id: number;
+  name: string;
+  poster: string | null;
+  year: number | null;
+  rating: number | null;
+}
+
+export interface Progress {
+  position: number;
+  duration: number | null;
+  completed: boolean;
+}
+
+export interface MovieDetail extends PosterCard {
+  backdrop: string | null;
+  plot: string | null;
+  cast: string | null;
+  director: string | null;
+  genre: string | null;
+  durationSec: number | null;
+  containerExt: string | null;
+  favorite: boolean;
+  progress: Progress | null;
+}
+
+export interface Episode {
+  id: number;
+  season: number;
+  episode: number;
+  title: string | null;
+  plot: string | null;
+  thumb: string | null;
+  durationSec: number | null;
+  progress: Progress | null;
+}
+
+export interface SeriesDetail extends PosterCard {
+  backdrop: string | null;
+  plot: string | null;
+  cast: string | null;
+  genre: string | null;
+  favorite: boolean;
+  seasons: { season: number; episodes: Episode[] }[];
+  /** Épisode à reprendre / suivant à regarder. */
+  resume: { episodeId: number; position: number } | null;
+}
+
+/* ------------------------------------------------------------------- EPG */
+
+export interface EpgProgram {
+  start: number;
+  stop: number;
+  title: string;
+  desc: string | null;
+}
+
+export interface EpgNowNext {
+  now: EpgProgram | null;
+  next: EpgProgram | null;
+}
+
+export interface EpgGridRow {
+  channel: TvChannel;
+  programs: EpgProgram[];
+}
+
+/* ---------------------------------------------------------- Accueil, recherche */
+
+export interface ContinueItem {
+  kind: 'vod' | 'episode';
+  id: number;
+  /** Film, ou série pour un épisode. */
+  parentId: number;
+  name: string;
+  subtitle: string | null;
+  image: string | null;
+  progress: Progress;
+}
+
+export interface HomeResponse {
+  continue: ContinueItem[];
+  favoriteChannels: TvChannel[];
+  recentChannels: TvChannel[];
+  recentMovies: PosterCard[];
+  series: PosterCard[];
+}
+
+export interface SearchResponse {
+  channels: TvChannel[];
+  movies: PosterCard[];
+  series: PosterCard[];
+}
+
+/* ------------------------------------------------------- Réglages, parental */
+
+export interface TvSettings {
+  audioLang: string | null;
+  subtitleLang: string | null;
+  playerMode: 'auto' | 'hls' | 'ts';
+  livePreview: boolean;
+  hasPin: boolean;
+}
+
+export interface PlaylistSummary {
+  id: string;
+  name: string;
+  status: string;
+  active: boolean;
+}

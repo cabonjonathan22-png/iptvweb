@@ -18,6 +18,7 @@ import { SourceError } from './source';
 import { ContentWriter } from './writer';
 import { syncM3u } from './m3u';
 import { XTREAM_PHASES } from './xtream';
+import { syncEpg } from './epg';
 import type { PhaseCtx, PhaseHandler, Playlist } from './types';
 
 const { syncJobs, playlists } = schema;
@@ -32,12 +33,12 @@ const LEASE_MS = 90_000;
 const MAX_INVOCATIONS = 40;
 
 const PHASES: Record<Playlist['type'], string[]> = {
-  m3u_url: ['m3u', 'finalize'],
-  m3u_file: ['m3u', 'finalize'],
-  xtream: ['live_categories', 'live_streams', 'vod_categories', 'vod_streams', 'series_categories', 'series', 'finalize'],
+  m3u_url: ['m3u', 'epg', 'finalize'],
+  m3u_file: ['m3u', 'epg', 'finalize'],
+  xtream: ['live_categories', 'live_streams', 'vod_categories', 'vod_streams', 'series_categories', 'series', 'epg', 'finalize'],
 };
 
-const HANDLERS: Record<string, PhaseHandler> = { m3u: syncM3u, ...XTREAM_PHASES };
+const HANDLERS: Record<string, PhaseHandler> = { m3u: syncM3u, epg: syncEpg, ...XTREAM_PHASES };
 
 export const PHASE_LABELS: Record<string, string> = {
   m3u: 'Lecture de la playlist',
@@ -47,6 +48,7 @@ export const PHASE_LABELS: Record<string, string> = {
   vod_streams: 'Films',
   series_categories: 'Catégories séries',
   series: 'Séries',
+  epg: 'Guide TV',
   finalize: 'Finalisation',
 };
 
@@ -157,6 +159,7 @@ export async function runJob(jobId: string, budgetMs = SYNC_BUDGET_MS): Promise<
     patchMeta: (m) => {
       meta = { ...meta, ...m };
     },
+    meta: () => meta,
   };
   const saveMeta = () => db.update(playlists).set({ meta }).where(eq(playlists.id, playlist.id));
   const release = async () => {

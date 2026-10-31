@@ -7,3 +7,4 @@ export * from './classify';
 export * from './json-stream';
 export * from './xtream';
 export * from './net-guard';
+export * from './xmltv';

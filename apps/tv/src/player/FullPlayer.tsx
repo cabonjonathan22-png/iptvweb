@@ -5,6 +5,9 @@ import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
 import { Img } from '../components/Img';
 import { usePlayer } from './usePlayer';
+import { ProgressBar } from '../components/Cards';
+import { epgFor, onEpgChange, progressOf } from '../lib/epg-store';
+import { hhmm } from '../lib/format';
 
 const OVERLAY_MS = 4000;
 const DIGIT_WAIT_MS = 1500;
@@ -13,6 +16,8 @@ interface Props {
   channel: TvChannel;
   /** Message temporaire (ex. « Chaîne 512 introuvable »). */
   notice: string | null;
+  favorite: boolean;
+  onFavorite: () => void;
   onZap: (delta: 1 | -1) => void;
   onNumber: (n: number) => void;
   onLast: () => void;
@@ -29,7 +34,7 @@ const clock = () => {
  * Lecture plein écran du direct. La vidéo elle-même est dans la couche vidéo
  * (player/host.ts) ; ce composant n'est que l'interface par-dessus.
  */
-export function FullPlayer({ channel, notice, onZap, onNumber, onLast, onExit }: Props) {
+export function FullPlayer({ channel, notice, favorite, onFavorite, onZap, onNumber, onLast, onExit }: Props) {
   const p = usePlayer();
   const [overlay, setOverlay] = useState(true);
   const [digits, setDigits] = useState('');
@@ -47,7 +52,9 @@ export function FullPlayer({ channel, notice, onZap, onNumber, onLast, onExit }:
   useEffect(() => {
     show();
     const t = window.setInterval(() => setTime(clock()), 15_000);
+    const off = onEpgChange(() => setTime(clock()));
     return () => {
+      off();
       window.clearInterval(t);
       window.clearTimeout(hideTimer.current);
       window.clearTimeout(digitTimer.current);
@@ -88,6 +95,10 @@ export function FullPlayer({ channel, notice, onZap, onNumber, onLast, onExit }:
       case 'green':
         onLast();
         return true;
+      case 'red':
+        onFavorite();
+        show();
+        return true;
       case 'yellow':
         setTracks(true);
         return true;
@@ -109,6 +120,7 @@ export function FullPlayer({ channel, notice, onZap, onNumber, onLast, onExit }:
   });
 
   const loading = p.state === 'loading' || p.state === 'buffering';
+  const epg = epgFor(channel.epgId);
 
   return (
     <FocusLayer name="player">
@@ -144,17 +156,30 @@ export function FullPlayer({ channel, notice, onZap, onNumber, onLast, onExit }:
           <div class="player-info">
             <div class="player-title">
               {channel.num !== null && <span class="player-num">{channel.num}</span>}
+              {favorite && <span class="ch-fav">♥ </span>}
               {channel.name}
             </div>
-            <div class="player-sub">
-              {p.state === 'paused' ? 'En pause' : loading ? 'Chargement…' : 'En direct'}
-              <span class="player-epg"> · Guide TV bientôt disponible</span>
-            </div>
+            {epg && epg.now ? (
+              <div class="player-epg">
+                <div class="player-sub">
+                  <span class="epg-time">{hhmm(epg.now.start)} – {hhmm(epg.now.stop)}</span> {epg.now.title}
+                </div>
+                <ProgressBar value={progressOf(epg.now)} />
+                {epg.next && (
+                  <div class="player-next">
+                    Ensuite <span class="epg-time">{hhmm(epg.next.start)}</span> {epg.next.title}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div class="player-sub">{p.state === 'paused' ? 'En pause' : loading ? 'Chargement…' : 'En direct'}</div>
+            )}
           </div>
           <div class="player-side">
             <div class="player-clock">{time}</div>
             <div class="player-hints">
               <span class="key-chip">CH ▲▼</span> Zapper
+              <span class="dot dot-red" /> Favori
               <span class="dot dot-green" /> Dernière
               <span class="dot dot-yellow" /> Pistes
             </div>
@@ -167,7 +192,7 @@ export function FullPlayer({ channel, notice, onZap, onNumber, onLast, onExit }:
   );
 }
 
-function TracksDialog({ onClose }: { onClose: () => void }) {
+export function TracksDialog({ onClose }: { onClose: () => void }) {
   const p = usePlayer();
   const audio = p.audioTracks();
   const subs = p.subtitleTracks();

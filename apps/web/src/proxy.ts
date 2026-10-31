@@ -13,7 +13,7 @@ const allowed = (process.env.TV_APP_ORIGINS || 'http://localhost:5173')
 function corsHeaders(origin: string | null): Record<string, string> {
   const h: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization,Content-Type,X-Pairing-Secret,If-None-Match',
+    'Access-Control-Allow-Headers': 'Authorization,Content-Type,X-Pairing-Secret,X-Parental,If-None-Match',
     'Access-Control-Expose-Headers': 'ETag,Retry-After',
     'Access-Control-Max-Age': '600',
     Vary: 'Origin',

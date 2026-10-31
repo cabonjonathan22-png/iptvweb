@@ -25,7 +25,7 @@ export async function pair(tv: Page, web: Page, name: string, email = 'e2e@examp
   await expect(web.getByRole('status')).toContainText(name);
   // La TV détecte la liaison par polling (3 s) et ouvre l'accueil.
   await expect(tv.locator('.crumb')).toHaveText('Accueil', { timeout: 15_000 });
-  await expect(tv.locator('.eyebrow')).toHaveText(name);
+  await expect(tv.locator('.eyebrow')).toContainText(name);
 }
 
 export const focusedText = (tv: Page) => tv.locator('.is-focused').first().innerText();

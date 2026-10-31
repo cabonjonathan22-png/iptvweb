@@ -1,10 +1,10 @@
-import { and, eq, isNull, or, type SQL } from 'drizzle-orm';
-import type { TvChannel } from '@iptv/shared';
+import { and, eq, type SQL } from 'drizzle-orm';
+import type { PosterCard, TvChannel } from '@iptv/shared';
 import { schema } from './db';
 import { imageUrl } from './images';
+import { visibleCategory } from './tv-api';
 
 const ch = schema.channels;
-const c = schema.categories;
 
 export const channelColumns = {
   id: ch.id,
@@ -15,9 +15,9 @@ export const channelColumns = {
   catchup: ch.catchup,
 };
 
-/** Chaînes d'une playlist dont la catégorie n'est pas masquée (les sans-catégorie restent visibles). */
-export function visibleChannels(playlistId: string, extra?: SQL): SQL {
-  return and(eq(ch.playlistId, playlistId), or(isNull(ch.categoryId), eq(c.hidden, false)), extra)!;
+/** Chaînes visibles d'une playlist (LEFT JOIN categories requis). */
+export function visibleChannels(playlistId: string, lockedOk: boolean, extra?: SQL): SQL {
+  return and(eq(ch.playlistId, playlistId), visibleCategory(ch.categoryId, lockedOk), extra)!;
 }
 
 export function toTvChannel(
@@ -32,4 +32,11 @@ export function toTvChannel(
     epgId: r.epgId,
     catchup: !!r.catchup,
   };
+}
+
+export function toPoster(
+  r: { id: number; name: string; poster: string | null; year: number | null; rating: number | null },
+  origin: string,
+): PosterCard {
+  return { id: r.id, name: r.name, poster: imageUrl(origin, r.poster, 'poster', 240), year: r.year, rating: r.rating };
 }

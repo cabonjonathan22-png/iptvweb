@@ -44,13 +44,13 @@ iptvweb/
 | 1 | **Pairing** : code + QR, polling 3 s, device token, révocation, rate limiting, écran Debug touches, confirmation de sortie | ✅ |
 | 2 | Playlists : M3U (URL, fichier), Xtream (chiffré), parsing streaming en jobs, cron 12 h, statut, catégories, aperçu | ✅ |
 | 3 | Live TV + lecteur + `stream-proxy` (HLS/TS, zapping, overlay, résilience), `/api/img`, lecteur de test du dashboard | ✅ |
-| 4 | Films (grille virtualisée, fiche, reprise) | ⏳ |
-| 5 | Séries (saisons, épisodes, épisode suivant) | |
-| 6 | EPG (XMLTV streaming, grille virtualisée, purge 24 h) | |
-| 7 | Recherche globale + clavier virtuel | |
-| 8 | Favoris et reprise de lecture | |
-| 9 | Réglages et contrôle parental (PIN) | |
-| 10 | Polish & performance (budget DOM, mémoire images, mesure démarrage VIDAA) | |
+| 4 | Films : grille virtualisée, fiche (get_vod_info + TMDB), lecture VOD, avance rapide accélérée | ✅ |
+| 5 | Séries : fiche, saisons, épisodes (get_series_info), progression, épisode suivant auto | ✅ |
+| 6 | EPG : XMLTV en flux (phase de synchro), rapprochement par id ou nom, now/next, guide virtualisé, purge 24 h | ✅ |
+| 7 | Recherche globale (trigrammes) + clavier virtuel, résultats instantanés | ✅ |
+| 8 | Favoris (touche rouge, catégories Favoris) et reprise (serveur toutes les 10 s + local), rangées de l'accueil | ✅ |
+| 9 | Réglages (compte) et contrôle parental : PIN scrypt, jeton de déverrouillage 1 h, catégories verrouillées | ✅ |
+| 10 | Polish & performance : bundle initial ~99 Ko gzip, skeletons, focus initial, messages d'erreur, tests | ✅ |
 
 ## Décisions techniques
 

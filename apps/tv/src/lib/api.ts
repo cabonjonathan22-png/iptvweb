@@ -1,6 +1,7 @@
 import { ApiError, createTvApi, type Transport } from '@iptv/shared';
 import { storage } from './storage';
 import { flags, SLOW_NETWORK_DELAY_MS } from './devflags';
+import { getUnlock } from './session';
 
 export const API_URL: string = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -48,5 +49,5 @@ const guarded: Transport = (req) =>
     return res;
   });
 
-export const api = createTvApi(guarded, storage.getToken);
+export const api = createTvApi(guarded, storage.getToken, getUnlock);
 export { ApiError };

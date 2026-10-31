@@ -102,14 +102,26 @@ export async function fetchJson<T>(url: string, timeoutMs = 20_000): Promise<T> 
   }
 }
 
-/** Corps de réponse (décompressé si .gz) -> morceaux de texte UTF-8. */
-export async function* responseText(res: Response, url: string): AsyncGenerator<string> {
+/**
+ * Corps de réponse -> morceaux de texte UTF-8. Décompresse le gzip détecté par
+ * ses octets magiques (fichiers .gz servis sans Content-Encoding, fréquent pour l'EPG).
+ */
+export async function* responseText(res: Response, _url: string): AsyncGenerator<string> {
   if (!res.body) return;
-  const gz = /\.gz(\?|$)/i.test(url) && !/gzip/i.test(res.headers.get('content-encoding') || '');
-  const stream = gz
-    ? Readable.fromWeb(res.body as never).pipe(createGunzip())
-    : (res.body as unknown as AsyncIterable<Uint8Array>);
-  yield* decodeChunks(stream);
+  const reader = (res.body as unknown as AsyncIterable<Uint8Array>)[Symbol.asyncIterator]();
+  const first = await reader.next();
+  if (first.done) return;
+  const head = first.value;
+  async function* rest(): AsyncGenerator<Uint8Array> {
+    yield head;
+    for (;;) {
+      const n = await reader.next();
+      if (n.done) return;
+      yield n.value;
+    }
+  }
+  const gz = head[0] === 0x1f && head[1] === 0x8b;
+  yield* decodeChunks(gz ? Readable.from(rest()).pipe(createGunzip()) : rest());
 }
 
 /** Données gzip stockées en base -> morceaux de texte. */
