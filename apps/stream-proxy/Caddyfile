@@ -1,0 +1,13 @@
+{$DOMAIN} {
+	encode {
+		# Ne compresse que les playlists : la vidéo est déjà compressée.
+		match {
+			header Content-Type application/vnd.apple.mpegurl*
+		}
+		gzip
+	}
+	reverse_proxy proxy:8080 {
+		# Diffusion continue (TS live) : pas de mise en tampon.
+		flush_interval -1
+	}
+}

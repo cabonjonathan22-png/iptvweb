@@ -78,8 +78,27 @@ function sendJson(res, body, status = 200) {
   res.end(JSON.stringify(body));
 }
 
+/** Flux HLS de test public (Mux), utilisé pour vérifier la lecture réelle. */
+const TEST_HLS = process.env.MOCK_TEST_HLS || 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+
+/**
+ * Flux factices : une chaîne sur trois redirige vers le flux de test, une sur
+ * trois est « hors ligne » (404, pour tester l'écran d'erreur), le reste aussi
+ * vers le flux de test.
+ */
+function stream(res, id) {
+  if (id % 3 === 1) {
+    res.writeHead(404);
+    return res.end();
+  }
+  res.writeHead(302, { Location: TEST_HLS });
+  res.end();
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, base);
+  const live = /^\/(?:live\/[^/]+\/[^/]+|stream)\/(\d+)\.(m3u8|ts)$/.exec(url.pathname);
+  if (live) return stream(res, Number(live[1]));
   if (url.pathname === '/playlist.m3u') {
     const n = Number(url.searchParams.get('n') || 1000);
     res.writeHead(200, { 'Content-Type': 'audio/x-mpegurl' });

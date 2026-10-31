@@ -1,4 +1,13 @@
-import type { PairStartResponse, PairStatusResponse, TvMeResponse } from './api-types';
+import type {
+  Page,
+  PairStartResponse,
+  PairStatusResponse,
+  PlayKind,
+  PlayResponse,
+  TvCategory,
+  TvChannel,
+  TvMeResponse,
+} from './api-types';
 
 /**
  * Client API indépendant du transport : la TV fournit un transport XHR
@@ -52,6 +61,16 @@ export function createTvApi(transport: Transport, getToken: () => string | null)
       ),
     me: () => call<TvMeResponse>('GET', '/api/tv/me'),
     unlink: () => call<{ ok: true }>('POST', '/api/tv/unlink'),
+    liveCategories: () => call<TvCategory[]>('GET', '/api/tv/live/categories'),
+    /** `category` : id de catégorie ou 'all'. */
+    liveChannels: (category: number | 'all', offset: number, limit: number) =>
+      call<Page<TvChannel>>(
+        'GET',
+        '/api/tv/live/channels?category=' + category + '&offset=' + offset + '&limit=' + limit,
+      ),
+    liveChannelByNum: (num: number) => call<{ channel: TvChannel | null }>('GET', '/api/tv/live/channel?num=' + num),
+    play: (kind: PlayKind, id: number, mode?: 'hls' | 'ts') =>
+      call<PlayResponse>('GET', '/api/tv/play?kind=' + kind + '&id=' + id + (mode ? '&mode=' + mode : '')),
   };
 }
 

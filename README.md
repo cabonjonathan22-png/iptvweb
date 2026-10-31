@@ -39,16 +39,28 @@ L'app TV se pilote entièrement au clavier : flèches, Entrée (OK), Échap ou R
 |---|---|
 | `?tv=1` | Rend l'app dans un cadre 1280×720, la résolution que rapportent la plupart des navigateurs TV |
 | `?slow=1` | Simule une TV bas de gamme : +1,2 s de latence réseau et CPU bridé (~20 ms bloqués par frame) |
+| `?hlsjs=1` | Ignore le HLS natif du navigateur (Chrome récent, Safari) et force hls.js, comme sur la plupart des TV |
+
+**Touches du lecteur (direct)** : ▲/▼ ou CH+/CH- pour zapper, chiffres pour aller à une chaîne, touche verte pour la dernière chaîne, touche jaune pour les pistes audio et sous-titres, OK ou toute touche pour afficher les infos, Retour pour revenir à la liste.
 
 Les flags restent actifs pour la session. Exemple : `http://localhost:5173/?tv=1&slow=1`.
 
-### Faux serveur IPTV (dev)
+### Faux serveur IPTV et proxy de flux (dev)
 
 Pour tester sans vraie source :
 
 ```bash
-node e2e/mock-iptv.mjs            # http://localhost:4010
+pnpm dev:mock                     # faux serveur IPTV : http://localhost:4010
+# proxy de flux : créer apps/stream-proxy/.env avec
+#   STREAM_PROXY_SECRET=dev-stream-secret-0123456789
+#   PUBLIC_URL=http://localhost:8080
+#   ALLOW_PRIVATE_UPSTREAMS=1
+pnpm dev:proxy                    # http://localhost:8080
 ```
+
+Dans `apps/web/.env.local`, ajoutez `STREAM_PROXY_URL=http://localhost:8080` et le même `STREAM_PROXY_SECRET`. Sans proxy, les URL sont renvoyées directement à la TV : cela marche en dev (page en http), pas en production.
+
+Une chaîne sur trois du faux serveur redirige vers un flux HLS de test public (Mux, connexion Internet requise), une sur trois est « hors ligne » pour voir l'écran d'erreur.
 
 Ajoutez ensuite `ALLOW_PRIVATE_SOURCES=1` dans `apps/web/.env.local`, puis dans le dashboard :
 - **Xtream** : serveur `localhost:4010`, identifiant `demo`, mot de passe `demo` (3 000 chaînes, 3 000 films, 300 séries ; taille via `MOCK_XTREAM_N`) ;
@@ -83,6 +95,7 @@ Toutes les variables sont documentées dans [.env.example](.env.example). Minimu
 | `AUTH_GOOGLE_ID` / `_SECRET` | web | Optionnel : connexion Google |
 | `CREDENTIALS_ENCRYPTION_KEY` | web | Clé AES-256-GCM (32 octets, base64) des identifiants Xtream |
 | `CRON_SECRET` | web | Protège le cron de synchro et les relances internes des jobs |
+| `STREAM_PROXY_URL`, `STREAM_PROXY_SECRET` | web + proxy | Proxy de flux (indispensable en production) |
 | `VITE_API_URL` | tv | URL du dashboard/API |
 
 ---
@@ -101,7 +114,22 @@ Toutes les variables sont documentées dans [.env.example](.env.example). Minimu
 
 La durée des fonctions est fixée à 300 s (`maxDuration`). Les grosses playlists sont découpées automatiquement en plusieurs invocations.
 
-Le proxy de flux (`apps/stream-proxy`) arrive à l'étape 3, avec son Dockerfile et sa procédure de déploiement sur VPS.
+### Proxy de flux (VPS)
+
+Les flux IPTV sont presque toujours en `http://` et sans CORS. Une page HTTPS (Vercel) ne peut pas les lire, et les fonctions Vercel ne doivent pas relayer de vidéo (durée et bande passante). Le proxy `apps/stream-proxy` est un petit serveur Node sans dépendance, à héberger sur n'importe quel VPS (1 vCPU / 1 Go suffit pour quelques flux simultanés ; c'est la bande passante qui compte).
+
+1. **DNS** : `stream.mondomaine.com` → IP du VPS.
+2. **Sur le VPS** (Docker installé), copiez au minimum `apps/stream-proxy/` et `packages/shared/src/` (ou clonez le dépôt), puis :
+   ```bash
+   cd apps/stream-proxy
+   cp .env.example .env     # DOMAIN, PUBLIC_URL, STREAM_PROXY_SECRET
+   docker compose up -d --build
+   ```
+   Caddy obtient le certificat HTTPS automatiquement (ports 80 et 443 ouverts).
+3. **Sur Vercel** (projet web) : `STREAM_PROXY_URL=https://stream.mondomaine.com` et le **même** `STREAM_PROXY_SECRET`.
+4. **Vérifier** : `curl https://stream.mondomaine.com/health` doit répondre `ok`, puis le bouton « Tester » de l'aperçu d'une playlist doit afficher « Lecture OK (… via le proxy de flux) ».
+
+Le proxy n'accepte que des jetons chiffrés émis par l'API (12 h pour une lecture, 6 h pour les segments). Ce n'est pas un proxy ouvert. Il refuse les adresses réseau privées, y compris après redirection.
 
 ---
 

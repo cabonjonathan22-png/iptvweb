@@ -20,12 +20,15 @@
     "@upstash/ratelimit": "^2.0.6",
     "@upstash/redis": "^1.35.0",
     "drizzle-orm": "^0.44.5",
+    "hls.js": "^1.7.4",
+    "mpegts.js": "^1.8.2",
     "next": "^16.0.0",
     "next-auth": "5.0.0-beta.32",
     "postgres": "^3.4.7",
     "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "sharp": "^0.34.5",
     "zod": "^4.1.0"
   },
   "devDependencies": {

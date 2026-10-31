@@ -43,8 +43,8 @@ iptvweb/
 | 0 | Socle monorepo, schéma DB complet, auth, design system TV + dashboard | ✅ |
 | 1 | **Pairing** : code + QR, polling 3 s, device token, révocation, rate limiting, écran Debug touches, confirmation de sortie | ✅ |
 | 2 | Playlists : M3U (URL, fichier), Xtream (chiffré), parsing streaming en jobs, cron 12 h, statut, catégories, aperçu | ✅ |
-| 3 | Live TV + lecteur + `stream-proxy` (HLS/TS, zapping, overlay, résilience), `/api/img`, lecteur de test du dashboard | ⏳ |
-| 4 | Films (grille virtualisée, fiche, reprise) | |
+| 3 | Live TV + lecteur + `stream-proxy` (HLS/TS, zapping, overlay, résilience), `/api/img`, lecteur de test du dashboard | ✅ |
+| 4 | Films (grille virtualisée, fiche, reprise) | ⏳ |
 | 5 | Séries (saisons, épisodes, épisode suivant) | |
 | 6 | EPG (XMLTV streaming, grille virtualisée, purge 24 h) | |
 | 7 | Recherche globale + clavier virtuel | |
@@ -75,5 +75,15 @@ iptvweb/
   dans Postgres. Privés, sans service Blob, ~40 Mo bruts sous la limite de 4,5 Mo de Vercel.
 - **SSRF** : toute URL fournie par l'utilisateur est refusée si elle résout vers une IP
   privée/réservée, y compris après redirection.
-- **Identifiants Xtream jamais exposés** : les URL de lecture seront signées et
-  résolues par le `stream-proxy` (étape 3), la TV ne voit jamais user/pass.
+- **Proxy de flux** (`apps/stream-proxy`, Node sans dépendance) : jetons **chiffrés**
+  AES-GCM émis par l'API (la TV ne voit jamais l'URL d'origine ni les identifiants Xtream),
+  réécriture HLS (segments, clés, init, pistes), UA/Referer, Range, CORS, refus des IP
+  privées à chaque redirection. Déployé sur un VPS avec Caddy (HTTPS auto).
+- **Lecteur TV** : un seul `<video>`, placé HORS de la scène mise à l'échelle (le transform
+  d'un parent dégrade la vidéo sur TV) et positionné en pixels réels ; la même instance
+  passe de l'aperçu au plein écran sans recharger. HLS natif → hls.js → mpegts.js, chargés
+  à la demande. Reconnexion visible (1/2/4/8 s), chien de garde 12 s sur le direct.
+- **Listes virtualisées** : la liste est un seul nœud focusable qui gère son index ; ~15
+  lignes dans le DOM quelle que soit la taille ; pages de 100 chaînes chargées à la demande,
+  réponses avec ETag (304 si rien n'a changé).
+- **Images** : `/api/img` signé (pas de proxy ouvert), redimensionné par sharp, cache immutable.

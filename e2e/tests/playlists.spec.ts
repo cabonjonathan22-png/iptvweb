@@ -1,13 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { generateM3u } from '../../packages/shared/src/fixtures.ts';
 
-const WEB = 'http://localhost:3000';
-const MOCK = 'http://localhost:4010';
+import { login, WEB } from './helpers';
 
-async function login(page: Page, email: string) {
-  const res = await page.request.post(WEB + '/api/test/session', { data: { email } });
-  expect(res.ok()).toBeTruthy();
-}
+const MOCK = 'http://localhost:4010';
 
 async function openNew(page: Page, tab: 'Xtream Codes' | 'Lien M3U' | 'Fichier M3U') {
   await page.goto(WEB + '/playlists/new');

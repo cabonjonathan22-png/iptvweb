@@ -218,5 +218,7 @@ export async function updateCategory(fd: FormData) {
       await db.update(c).set({ sortOrder: me!.sortOrder }).where(eq(c.id, other.id));
     }
   }
+  // Invalide les ETag côté TV (ordre / noms / masquage changés).
+  await db.update(schema.playlists).set({ updatedAt: new Date() }).where(eq(schema.playlists.id, cat.playlistId));
   revalidatePath('/playlists/' + cat.playlistId);
 }

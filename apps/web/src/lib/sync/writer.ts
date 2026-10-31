@@ -169,6 +169,17 @@ export class ContentWriter {
     await stale(series);
     await stale(categories);
 
+    // Chaînes sans numéro (M3U sans tvg-chno) : numérotées à la suite, dans l'ordre
+    // de la playlist, pour le zapping et la saisie directe aux chiffres.
+    await this.db.execute(sql`
+      update ${channels} set num = s.n
+      from (
+        select id, (row_number() over (order by sort_order, id)
+               + coalesce((select max(num) from ${channels} where playlist_id = ${pid}), 0))::int as n
+        from ${channels} where playlist_id = ${pid} and num is null
+      ) s
+      where ${channels.id} = s.id`);
+
     const c = async (t: typeof channels | typeof vodItems | typeof series) =>
       (await this.db.select({ n: count() }).from(t).where(eq(t.playlistId, pid)))[0]?.n ?? 0;
     return { liveCount: await c(channels), vodCount: await c(vodItems), seriesCount: await c(series) };

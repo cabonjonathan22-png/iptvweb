@@ -36,5 +36,17 @@ const xhrTransport: Transport = (req) =>
     else send();
   });
 
-export const api = createTvApi(xhrTransport, storage.getToken);
+let onUnauthorized: (() => void) | null = null;
+/** Appelé sur toute réponse 401 (TV révoquée depuis le dashboard). */
+export function setUnauthorizedHandler(fn: () => void) {
+  onUnauthorized = fn;
+}
+
+const guarded: Transport = (req) =>
+  xhrTransport(req).then((res) => {
+    if (res.status === 401 && storage.getToken() && onUnauthorized) onUnauthorized();
+    return res;
+  });
+
+export const api = createTvApi(guarded, storage.getToken);
 export { ApiError };

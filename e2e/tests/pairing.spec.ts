@@ -1,32 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
-
-const TV = 'http://localhost:5173/';
-const WEB = 'http://localhost:3000';
-
-async function readCode(tv: Page): Promise<string> {
-  const chars = tv.locator('.pair-char:not(.skeleton)');
-  await expect(chars).toHaveCount(6, { timeout: 30_000 });
-  return (await chars.allTextContents()).join('');
-}
-
-/** Lie la TV ouverte dans `tv` à un compte de test, via le dashboard. */
-async function pair(tv: Page, web: Page, name: string) {
-  await tv.goto(TV);
-  const code = await readCode(tv);
-
-  const res = await web.request.post(WEB + '/api/test/session', { data: { email: 'e2e@example.com' } });
-  expect(res.ok()).toBeTruthy();
-  await web.goto(WEB + '/link?code=' + code);
-  await web.getByLabel('Nom de la TV').fill(name);
-  await web.getByRole('button', { name: 'Lier cette TV' }).click();
-  await expect(web.getByRole('status')).toContainText(name);
-
-  // La TV détecte la liaison par polling (3 s) et ouvre l'accueil.
-  await expect(tv.locator('.crumb')).toHaveText('Accueil', { timeout: 15_000 });
-  await expect(tv.locator('.eyebrow')).toHaveText(name);
-}
-
-const focusedText = (tv: Page) => tv.locator('.is-focused').innerText();
+import { expect, test } from '@playwright/test';
+import { focusedText, pair, WEB } from './helpers';
 
 test('pairing complet TV <-> dashboard, puis déliaison', async ({ browser }) => {
   const tv = await (await browser.newContext()).newPage();

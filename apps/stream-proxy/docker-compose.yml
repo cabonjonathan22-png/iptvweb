@@ -1,0 +1,30 @@
+# Déploiement type sur un VPS : proxy + Caddy (HTTPS Let's Encrypt automatique).
+#   1. DNS : stream.mondomaine.com -> IP du VPS
+#   2. cp .env.example .env  (STREAM_PROXY_SECRET identique à celui du projet Vercel "web")
+#   3. docker compose up -d --build
+services:
+  proxy:
+    build:
+      context: ../..
+      dockerfile: apps/stream-proxy/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "8080"
+    expose:
+      - "8080"
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?définir DOMAIN dans .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - proxy
+volumes:
+  caddy_data:

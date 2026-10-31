@@ -28,7 +28,9 @@ export function HomeScreen() {
         {me && me.playlist ? (
           <>
             <h1 class="hero-title">{me.playlist.name}</h1>
-            <p class="hero-sub">Playlist active · synchronisation : {me.playlist.status}</p>
+            <p class="hero-sub">
+              Playlist active{me.playlist.status === 'syncing' ? ' · synchronisation en cours…' : me.playlist.status === 'error' ? ' · erreur de synchronisation' : ''}
+            </p>
           </>
         ) : (
           <>
@@ -40,7 +42,12 @@ export function HomeScreen() {
           </>
         )}
         <div class="row-actions">
-          <Button id="home-refresh" variant="primary" onSelect={app.boot} autoFocus>
+          {me && me.playlist && (
+            <Button id="home-live" variant="primary" onSelect={() => app.push('live')} autoFocus>
+              TV en direct
+            </Button>
+          )}
+          <Button id="home-refresh" variant={me && me.playlist ? 'ghost' : 'primary'} onSelect={app.boot} autoFocus={!(me && me.playlist)}>
             Actualiser
           </Button>
           <Button id="home-settings" onSelect={() => app.push('settings')}>

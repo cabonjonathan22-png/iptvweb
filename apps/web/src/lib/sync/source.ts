@@ -9,6 +9,7 @@
  */
 import { lookup } from 'node:dns/promises';
 import net from 'node:net';
+import { isLocalHostname, isPrivateIp } from '@iptv/shared';
 import { createGunzip } from 'node:zlib';
 import { Readable } from 'node:stream';
 
@@ -24,31 +25,6 @@ export class SourceError extends Error {
 /** User-agent proche d'un lecteur courant : beaucoup de panels filtrent les UA inconnus. */
 export const SOURCE_UA = 'VLC/3.0.21 LibVLC/3.0.21';
 
-function v4Private(ip: string): boolean {
-  const p = ip.split('.').map(Number) as [number, number, number, number];
-  const [a, b] = p;
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 100 && b >= 64 && b <= 127) ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    (a === 192 && b === 0) ||
-    (a === 198 && (b === 18 || b === 19)) ||
-    a >= 224
-  );
-}
-
-export function isPrivateIp(ip: string): boolean {
-  if (net.isIPv4(ip)) return v4Private(ip);
-  const l = ip.toLowerCase();
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(l);
-  if (mapped) return v4Private(mapped[1]!);
-  return l === '::' || l === '::1' || l.startsWith('fc') || l.startsWith('fd') || l.startsWith('fe80');
-}
-
 const allowPrivate = () => process.env.ALLOW_PRIVATE_SOURCES === '1' && !process.env.VERCEL;
 
 export async function assertPublicUrl(raw: string): Promise<URL> {
@@ -63,7 +39,7 @@ export async function assertPublicUrl(raw: string): Promise<URL> {
   }
   if (allowPrivate()) return url;
   const host = url.hostname.replace(/^\[|\]$/g, '');
-  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.internal')) {
+  if (isLocalHostname(host)) {
     throw new SourceError('Adresse locale non autorisée.', 'blocked');
   }
   const ips = net.isIP(host) ? [host] : (await lookup(host, { all: true }).catch(() => [])).map((a) => a.address);

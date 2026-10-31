@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
+import { imageUrl } from '@/lib/images';
 import { and, asc, count, desc, eq, sql } from 'drizzle-orm';
 import type { XtreamCreds } from '@iptv/shared';
 import { requireUser } from '@/auth';
@@ -14,6 +16,7 @@ import { Thumb } from '@/components/Thumb';
 import { ConfirmButton } from '@/components/ConfirmButton';
 import { PlaylistEditForm } from '@/components/PlaylistEditForm';
 import { ReuploadForm } from '@/components/ReuploadForm';
+import { TestPlayButton } from '@/components/TestPlayer';
 import { deletePlaylist, syncPlaylist, updateCategory } from '@/app/actions/playlists';
 
 export const metadata: Metadata = { title: 'Playlist' };
@@ -289,6 +292,9 @@ async function Preview({
     .limit(PAGE + 1)
     .offset((page - 1) * PAGE);
   const hasNext = rows.length > PAGE;
+  // Images des playlists souvent en http:// : servies via le proxy d'images (HTTPS, redimensionnées).
+  const h = await headers();
+  const origin = (h.get('x-forwarded-proto') || 'http') + '://' + (h.get('x-forwarded-host') || h.get('host'));
 
   return (
     <div className="space-y-4">
@@ -304,11 +310,16 @@ async function Preview({
         <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {rows.slice(0, PAGE).map((r) => (
             <li key={r.id} className="flex items-center gap-3 rounded-xl border border-line bg-surface px-3 py-2.5">
-              <Thumb src={r.image} name={r.name} className={kind === 'live' ? 'size-10' : 'h-14 w-10'} />
+              <Thumb
+                src={kind === 'live' ? imageUrl(origin, r.image, 'logo', 96) : imageUrl(origin, r.image, 'poster', 240)}
+                name={r.name}
+                className={kind === 'live' ? 'size-10' : 'h-14 w-10'}
+              />
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{r.name}</p>
                 <p className="truncate text-xs text-muted">{r.category ?? 'Sans catégorie'}</p>
               </div>
+              {kind !== 'series' && <TestPlayButton playlistId={playlistId} kind={kind} id={r.id} name={r.name} />}
             </li>
           ))}
         </ul>
@@ -327,7 +338,6 @@ async function Preview({
           </Link>
         )}
       </div>
-      <p className="text-xs text-muted">Le lecteur de test arrive avec le lecteur vidéo (étape 3).</p>
     </div>
   );
 }

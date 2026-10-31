@@ -2,7 +2,7 @@ import { createContext } from 'preact';
 import { useContext } from 'preact/hooks';
 import type { TvMeResponse } from '@iptv/shared';
 
-export type ScreenName = 'pairing' | 'home' | 'settings' | 'keydebug';
+export type ScreenName = 'pairing' | 'home' | 'live' | 'settings' | 'keydebug';
 
 export interface Entry {
   key: string;

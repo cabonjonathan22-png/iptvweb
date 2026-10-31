@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { TvMeResponse } from '@iptv/shared';
 import { AppCtx, type AppApi, type Entry, type ScreenName } from './app-context';
-import { api, ApiError } from './lib/api';
+import { api, ApiError, setUnauthorizedHandler } from './lib/api';
 import { storage } from './lib/storage';
 import { focus } from './nav/focus';
 import { FocusLayer, keyHandlers } from './nav/hooks';
@@ -10,12 +10,14 @@ import { Button } from './components/Button';
 import { Dialog } from './components/Dialog';
 import { PairingScreen } from './screens/Pairing';
 import { HomeScreen } from './screens/Home';
+import { LiveScreen } from './screens/Live';
 import { SettingsScreen } from './screens/Settings';
 import { KeyDebugScreen } from './screens/KeyDebug';
 
 const SCREENS: { [K in ScreenName]: () => preact.JSX.Element } = {
   pairing: PairingScreen,
   home: HomeScreen,
+  live: LiveScreen,
   settings: SettingsScreen,
   keydebug: KeyDebugScreen,
 };
@@ -81,6 +83,7 @@ export function App() {
 
   // Démarrage + retrait du shell HTML.
   useEffect(() => {
+    setUnauthorizedHandler(app.onUnauthorized);
     app.boot();
   }, []);
   useEffect(() => {

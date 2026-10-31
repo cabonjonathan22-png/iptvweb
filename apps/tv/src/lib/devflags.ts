@@ -2,6 +2,7 @@
  * Mode « TV sur desktop » (ajouter à l'URL) :
  *   ?tv=1    -> rend l'app dans un cadre 1280×720, comme la plupart des navigateurs TV
  *   ?slow=1  -> simule une TV bas de gamme : latence réseau +1,2 s et CPU bridé
+ *   ?hlsjs=1 -> ignore le HLS natif du navigateur et force hls.js (comme sur la plupart des TV)
  * Les flags sont mémorisés pour la session (sessionStorage).
  */
 
@@ -18,6 +19,7 @@ function readFlag(name: string): boolean {
 export const flags = {
   tvFrame: readFlag('tv'),
   slow: readFlag('slow'),
+  forceHlsJs: readFlag('hlsjs'),
 };
 
 export const SLOW_NETWORK_DELAY_MS = 1200;

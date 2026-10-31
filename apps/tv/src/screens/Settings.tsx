@@ -5,12 +5,17 @@ import { Dialog } from '../components/Dialog';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { api } from '../lib/api';
 import { storage } from '../lib/storage';
+import { prefs, type LiveMode } from '../lib/prefs';
 
 /** Réglages (étape 1 : infos appareil + déliaison). Le reste arrive à l'étape 9. */
 export function SettingsScreen() {
   const app = useApp();
   const [confirmUnlink, setConfirmUnlink] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState(prefs.preview);
+  const [liveMode, setLiveMode] = useState<LiveMode>(prefs.liveMode);
+  const MODES: LiveMode[] = ['auto', 'hls', 'ts'];
+  const MODE_LABEL: Record<LiveMode, string> = { auto: 'Auto', hls: 'HLS', ts: 'MPEG-TS' };
 
   const unlink = () => {
     setBusy(true);
@@ -32,11 +37,31 @@ export function SettingsScreen() {
       <ScreenHeader title="Réglages" backHint="Accueil" />
       <div class="settings">
         <div class="settings-menu">
-          <Button id="set-unlink" variant="danger" onSelect={() => setConfirmUnlink(true)} autoFocus>
-            Délier cette TV
+          <Button
+            id="set-preview"
+            autoFocus
+            onSelect={() => {
+              prefs.preview = !preview;
+              setPreview(!preview);
+            }}
+          >
+            Aperçu des chaînes : {preview ? 'activé' : 'désactivé'}
+          </Button>
+          <Button
+            id="set-mode"
+            onSelect={() => {
+              const next = MODES[(MODES.indexOf(liveMode) + 1) % MODES.length]!;
+              prefs.liveMode = next;
+              setLiveMode(next);
+            }}
+          >
+            Format du direct : {MODE_LABEL[liveMode]}
           </Button>
           <Button id="set-keys" onSelect={() => app.push('keydebug')}>
             Debug touches
+          </Button>
+          <Button id="set-unlink" variant="danger" onSelect={() => setConfirmUnlink(true)}>
+            Délier cette TV
           </Button>
         </div>
         <dl class="info-list">
