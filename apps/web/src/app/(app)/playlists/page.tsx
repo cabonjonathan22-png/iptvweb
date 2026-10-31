@@ -27,7 +27,7 @@ export default async function PlaylistsPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Playlists</h1>
-          <p className="mt-1 text-muted">Vos sources, synchronisées automatiquement toutes les 12 heures.</p>
+          <p className="mt-1 text-muted">Vos sources, synchronisées automatiquement chaque jour.</p>
         </div>
         <Link href="/playlists/new" className="btn-primary">
           Ajouter une playlist

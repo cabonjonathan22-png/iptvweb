@@ -69,7 +69,10 @@ export async function fetchSource(raw: string, opts: FetchSourceOptions = {}): P
       });
     } catch (e) {
       throw ctrl.signal.aborted
-        ? new SourceError('Le serveur ne répond pas (délai dépassé).', 'timeout')
+        ? new SourceError(
+            'Le serveur de la playlist n’a pas répondu à temps. S’il répond depuis votre ordinateur, il bloque peut-être les serveurs cloud : essayez le mode Xtream ou l’ajout par fichier.',
+            'timeout',
+          )
         : new SourceError(`Connexion impossible : ${(e as Error).message}`, 'unreachable');
     } finally {
       // Le timeout ne couvre que l'établissement de la réponse, pas la lecture du corps.

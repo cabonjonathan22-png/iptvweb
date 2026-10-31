@@ -25,7 +25,9 @@ async function source(ctx: PhaseCtx): Promise<AsyncGenerator<string>> {
     return gzipText(file.gzData);
   }
   if (!p.sourceUrl) throw new SourceError('URL de playlist manquante.', 'invalid');
-  const res = await fetchSource(p.sourceUrl, { timeoutMs: 30_000 });
+  // Les panels génèrent souvent la playlist à la demande : la première réponse peut être lente.
+  // Reste sous la durée du bail du job (90 s).
+  const res = await fetchSource(p.sourceUrl, { timeoutMs: 80_000 });
   return responseText(res, p.sourceUrl);
 }
 
