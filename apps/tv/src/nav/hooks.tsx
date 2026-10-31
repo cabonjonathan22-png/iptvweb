@@ -31,6 +31,29 @@ export function useLayer() {
 
 let autoId = 0;
 
+/*
+ * Survol = focus, seulement si le pointeur a vraiment bougé. Quand le focus fait
+ * défiler l'écran, un autre élément passe sous le pointeur immobile : le navigateur
+ * signale alors un survol, et le focus partirait tout seul de proche en proche.
+ */
+const HOVER_MIN_MOVE = 4;
+const HOVER_PAUSE_MS = 400;
+let pointerX: number | null = null;
+let pointerY = 0;
+let pointerMoved = false;
+let hoverPausedUntil = 0;
+document.addEventListener(
+  'mousemove',
+  (e) => {
+    pointerMoved = pointerX !== null && Math.abs(e.clientX - pointerX) + Math.abs(e.clientY - pointerY) >= HOVER_MIN_MOVE;
+    if (pointerX === null || pointerMoved) {
+      pointerX = e.clientX;
+      pointerY = e.clientY;
+    }
+  },
+  true,
+);
+
 export interface UseFocusableOpts extends FocusCallbacks {
   /** Id stable (requis pour la mémorisation du focus entre deux visites d'écran). */
   id?: string;
@@ -62,16 +85,19 @@ export function useFocusable<T extends HTMLElement = HTMLDivElement>(opts: UseFo
 
     // Télécommandes pointeur (Magic Remote…) : survol = focus, clic = OK.
     const onEnter = () => focus.focus(id);
+    const onHover = () => {
+      if (pointerMoved && Date.now() > hoverPausedUntil && !focus.isFocused(id)) focus.focus(id);
+    };
     el.addEventListener('touchstart', onEnter, { passive: true });
     const onClick = () => {
       focus.focus(id);
       focus.select();
     };
-    el.addEventListener('mouseenter', onEnter);
+    el.addEventListener('mousemove', onHover);
     el.addEventListener('click', onClick);
     return () => {
       el.removeEventListener('touchstart', onEnter);
-      el.removeEventListener('mouseenter', onEnter);
+      el.removeEventListener('mousemove', onHover);
       el.removeEventListener('click', onClick);
       unsub();
       focus.unregister(id);
@@ -95,6 +121,8 @@ export function setDefaultKeyHandler(fn: (k: KeyAction) => void) {
 }
 
 export function dispatchKey(k: KeyAction) {
+  // Molette ou touches en cours : un léger mouvement de la main ne doit pas déplacer le focus.
+  hoverPausedUntil = Date.now() + HOVER_PAUSE_MS;
   for (let i = keyHandlers.length - 1; i >= 0; i--) if (keyHandlers[i]!(k)) return;
   if (defaultKey) defaultKey(k);
 }

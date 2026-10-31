@@ -28,10 +28,9 @@ if (touchUi) {
   applyScale(stage, frame);
   mountVideoLayer(frame);
   if (flags.slow) startCpuThrottle();
-  if (isPointerDevice) {
-    installPointerGestures(frame);
-    initCast();
-  }
+  // Aussi sur TV : les télécommandes à pointeur et les souris USB ont une molette.
+  installPointerGestures(frame);
+  if (isPointerDevice) initCast();
   render(<App />, stage);
 }
 

@@ -1,5 +1,5 @@
 /**
- * Souris et tactile : la molette et les glissements sont traduits en flèches.
+ * Souris, télécommande à pointeur et tactile : la molette et les glissements sont traduits en flèches.
  * Listes, grilles, rangées et lecteur (zapping, avance rapide) réagissent donc
  * exactement comme à la télécommande, sans logique dédiée à chaque composant.
  */
@@ -9,12 +9,19 @@ import type { Action } from './keys';
 const WHEEL_STEP = 80;
 const SWIPE_STEP = 40;
 const STEP_MS = 40;
+/** File courte : la liste s'arrête dès que le geste s'arrête. */
+const MAX_QUEUE = 3;
+/** Après ce silence, la molette repart de zéro. */
+const WHEEL_IDLE_MS = 250;
+/** Fin d'inertie des pavés tactiles et des télécommandes à pointeur. */
+const WHEEL_MIN_DELTA = 4;
 
 const queue: Action[] = [];
 let timer = 0;
 function enqueue(a: Action) {
-  // Sans limite, une grande molette ferait défiler bien après la fin du geste.
-  if (queue.length < 20) queue.push(a);
+  // Changement de sens : on oublie les pas encore en attente.
+  if (queue.length && queue[queue.length - 1] !== a) queue.length = 0;
+  if (queue.length < MAX_QUEUE) queue.push(a);
   if (timer) return;
   const run = () => {
     const next = queue.shift();
@@ -31,12 +38,24 @@ function enqueue(a: Action) {
 export function installPointerGestures(el: HTMLElement) {
   let ax = 0;
   let ay = 0;
+  let lastWheel = 0;
   el.addEventListener(
     'wheel',
     (e) => {
       e.preventDefault();
-      ax += e.deltaX;
-      ay += e.deltaY;
+      // Selon le navigateur, le défilement est exprimé en pixels, en lignes ou en pages.
+      const unit = e.deltaMode === 1 ? WHEEL_STEP / 3 : e.deltaMode === 2 ? WHEEL_STEP * 3 : 1;
+      const dx = e.deltaX * unit;
+      const dy = e.deltaY * unit;
+      if (Math.abs(dx) < WHEEL_MIN_DELTA && Math.abs(dy) < WHEEL_MIN_DELTA) return;
+      const now = Date.now();
+      if (now - lastWheel > WHEEL_IDLE_MS || (dy > 0) !== (ay > 0)) {
+        ax = 0;
+        ay = 0;
+      }
+      lastWheel = now;
+      ax += dx;
+      ay += dy;
       while (Math.abs(ay) >= WHEEL_STEP) {
         enqueue(ay > 0 ? 'down' : 'up');
         ay -= ay > 0 ? WHEEL_STEP : -WHEEL_STEP;

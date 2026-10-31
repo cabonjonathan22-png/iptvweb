@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { pair, WEB } from './helpers';
+import { pair, TV, WEB } from './helpers';
 
 /** Oria TV dans un navigateur de PC : souris, molette, boutons à l'écran. */
 test('PC : molette, clic, boutons du lecteur', async ({ browser }) => {
@@ -37,4 +37,37 @@ test('PC : molette, clic, boutons du lecteur', async ({ browser }) => {
   // L'indication « Retour » de l'en-tête est cliquable.
   await pc.locator('.hint-back').click();
   await expect(pc.locator('.crumb')).toHaveText('Accueil');
+
+  // Pointeur immobile : le défilement au clavier ne doit pas déclencher de faux survols.
+  const token = await pc.evaluate(() => localStorage.getItem('oria.token'));
+  await expect(pc.locator('.row-title').first()).toBeVisible({ timeout: 15_000 });
+  await pc.locator('.home-menu').getByText('TV en direct').hover();
+  await pc.keyboard.press('ArrowDown');
+  await pc.waitForTimeout(1000);
+  const later = await pc.locator('.is-focused').first().innerText();
+  expect(later).not.toBe('TV en direct');
+  // Rien ne bouge tout seul ensuite.
+  await pc.waitForTimeout(800);
+  expect(await pc.locator('.is-focused').first().innerText()).toBe(later);
+
+  // Navigateur de TV avec souris : la molette marche aussi, y compris exprimée en lignes.
+  const tvCtx = await browser.newContext({ userAgent: 'Mozilla/5.0 (Linux; VIDAA) AppleWebKit/537.36 Chrome/70.0 Safari/537.36' });
+  await tvCtx.addInitScript((t) => localStorage.setItem('oria.token', t as string), token);
+  const tv = await tvCtx.newPage();
+  await tv.goto(TV);
+  await expect(tv.locator('html')).toHaveClass(/device-tv/);
+  await tv.locator('.home-menu').getByText('TV en direct').click({ timeout: 15_000 });
+  await expect(tv.locator('.col-channels .is-focused .ch-name')).toBeVisible({ timeout: 15_000 });
+  const start = Number((await tv.locator('.col-channels .is-focused .ch-name').innerText()).replace(/\D/g, ''));
+  await tv.locator('.col-channels .vl').hover();
+  await tv.mouse.wheel(0, 120);
+  await expect(tv.locator('.col-channels .is-focused .ch-name')).toHaveText('Chaîne ' + (start + 1));
+  await tv.waitForTimeout(400);
+  await tv.evaluate(() => {
+    document.querySelector('.col-channels .vl')!.dispatchEvent(new WheelEvent('wheel', { deltaY: 3, deltaMode: 1, bubbles: true, cancelable: true }));
+  });
+  await expect(tv.locator('.col-channels .is-focused .ch-name')).toHaveText('Chaîne ' + (start + 2));
+  // Une seule cran : pas de défilement qui continue après coup.
+  await tv.waitForTimeout(600);
+  await expect(tv.locator('.col-channels .is-focused .ch-name')).toHaveText('Chaîne ' + (start + 2));
 });
