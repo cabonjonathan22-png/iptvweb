@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <meta name="theme-color" content="#0B0B10" />
+    <title>Oria</title>
+    <!-- Shell immédiat : affiché avant que le JS ne soit téléchargé et parsé. -->
+    <style>
+      html, body { margin: 0; height: 100%; background: #0b0b10; overflow: hidden; }
+      #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; }
+      #boot i { width: 96px; height: 96px; border-radius: 28px; background: #7c6cff; display: block; animation: boot 1.2s ease-in-out infinite; }
+      @keyframes boot { 0%, 100% { opacity: .55; transform: scale(.94); } 50% { opacity: 1; transform: scale(1); } }
+    </style>
+  </head>
+  <body>
+    <div id="boot"><i></i></div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

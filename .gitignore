@@ -1,0 +1,21 @@
+node_modules
+.next
+dist
+out
+.vercel
+.turbo
+coverage
+*.tsbuildinfo
+next-env.d.ts
+
+# env
+.env
+.env.local
+.env.*.local
+
+# base locale PGlite (dev)
+.data
+
+# playwright
+test-results
+playwright-report

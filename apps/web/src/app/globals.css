@@ -1,0 +1,50 @@
+@import 'tailwindcss';
+
+/* Identité partagée avec l'app TV (voir packages/shared/src/brand.ts). */
+@theme {
+  --color-bg: #0b0b10;
+  --color-surface: #15151d;
+  --color-surface-2: #1e1e29;
+  --color-line: #2a2a38;
+  --color-fg: #f4f4f8;
+  --color-muted: #9a9ab0;
+  --color-accent: #7c6cff;
+  --color-accent-strong: #9688ff;
+  --color-danger: #ff5c6c;
+  --color-ok: #3ddc97;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --radius-card: 1rem;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@utility card {
+  @apply rounded-(--radius-card) border border-line bg-surface p-5 sm:p-6;
+}
+@utility btn {
+  @apply inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-accent text-white hover:bg-accent-strong;
+}
+@utility btn-ghost {
+  @apply btn border border-line bg-surface-2 text-fg hover:border-muted;
+}
+@utility btn-danger {
+  @apply btn border border-danger/40 text-danger hover:bg-danger/10;
+}
+@utility input {
+  @apply h-11 w-full rounded-xl border border-line bg-bg px-4 text-base text-fg placeholder:text-muted/60 focus:border-accent focus:outline-none;
+}
+@utility label {
+  @apply mb-1.5 block text-sm font-medium text-muted;
+}

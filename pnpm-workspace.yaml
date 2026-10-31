@@ -1,0 +1,12 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "e2e"
+
+# Seuls ces paquets peuvent exécuter des scripts d'installation.
+allowBuilds:
+  esbuild: true
+  sharp: true
+  "@tailwindcss/oxide": true
+  unrs-resolver: true
+  core-js: false
