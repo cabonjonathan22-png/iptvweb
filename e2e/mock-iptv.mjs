@@ -145,6 +145,10 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, base);
   const live = /^\/(?:live\/[^/]+\/[^/]+|stream)\/(\d+)\.(m3u8|ts)$/.exec(url.pathname);
   if (live) return stream(res, Number(live[1]));
+  if (/^\/timeshift\/[^/]+\/[^/]+\/\d+\/[\d:-]+\/\d+\.(ts|m3u8)$/.test(url.pathname)) {
+    res.writeHead(302, { Location: TEST_HLS });
+    return res.end();
+  }
   if (url.pathname === '/playlist.m3u') {
     const n = Number(url.searchParams.get('n') || 1000);
     res.writeHead(200, { 'Content-Type': 'audio/x-mpegurl' });
@@ -164,7 +168,7 @@ const server = http.createServer((req, res) => {
           exp_date: String(Math.floor(Date.now() / 1000) + 30 * 86400),
           max_connections: '2',
         },
-        server_info: { url: 'localhost', port: String(PORT) },
+        server_info: { url: 'localhost', port: String(PORT), timezone: 'Europe/Paris' },
       });
     }
     const h = actions[action];

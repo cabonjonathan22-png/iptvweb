@@ -29,7 +29,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async (): Promise<Ne
       }),
     }),
   ];
-  if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) providers.push(Google);
+  if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
+    // Google vérifie l'adresse : un compte créé par lien e-mail retrouve ses données.
+    providers.push(Google({ allowDangerousEmailAccountLinking: true }));
+  }
 
   return {
     adapter: DrizzleAdapter(db as unknown as PostgresJsDatabase, {

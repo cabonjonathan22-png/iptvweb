@@ -567,6 +567,10 @@
 .guide-prog.is-now {
   background: var(--surface-2);
 }
+.guide-prog.is-replay .guide-prog-title::before {
+  content: '↺ ';
+  color: var(--accent);
+}
 .guide-prog.empty-prog {
   color: var(--muted);
   font-size: 22px;

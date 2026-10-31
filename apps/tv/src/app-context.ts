@@ -28,6 +28,8 @@ export interface AppApi {
   push: (name: ScreenName, params?: Record<string, unknown>) => void;
   back: () => void;
   reset: (name: ScreenName) => void;
+  /** Ouvre un écran directement ; Retour ramène à l'accueil. */
+  open: (name: ScreenName, params?: Record<string, unknown>) => void;
   /** À appeler sur toute réponse 401 : le token a été révoqué. */
   onUnauthorized: () => void;
 }

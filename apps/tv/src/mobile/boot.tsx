@@ -6,6 +6,7 @@ import { api, ApiError, setUnauthorizedHandler } from '../lib/api';
 import { registerServiceWorker } from '../lib/install';
 import { session } from '../lib/session';
 import { storage } from '../lib/storage';
+import { initCast } from '../player/cast';
 import { player } from '../player/engine';
 import { MobileCtx, type MobileApi, type Route, type Tab } from './context';
 import { dropBack, pushBack } from './nav';
@@ -182,6 +183,7 @@ function mountVideo() {
   const video = document.createElement('video');
   video.setAttribute('playsinline', '');
   video.setAttribute('preload', 'auto');
+  video.setAttribute('x-webkit-airplay', 'allow');
   layer.appendChild(video);
   document.body.appendChild(layer);
   player.attach(video);
@@ -192,6 +194,7 @@ function mountVideo() {
 
 export function boot(root: HTMLElement) {
   mountVideo();
+  initCast();
   registerServiceWorker();
   render(<MobileApp />, root);
 }

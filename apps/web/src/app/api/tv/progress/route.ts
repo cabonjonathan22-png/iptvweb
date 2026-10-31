@@ -40,6 +40,7 @@ export async function PUT(req: Request) {
     positionSec: kind === 'live' ? 0 : position,
     durationSec: duration,
     completed: kind !== 'live' && isCompleted(position, duration),
+    deviceId: ctx.device.id,
     updatedAt: new Date(),
   };
   await db
@@ -47,7 +48,7 @@ export async function PUT(req: Request) {
     .values(values)
     .onConflictDoUpdate({
       target: [w.userId, w.kind, w.itemId],
-      set: { positionSec: values.positionSec, durationSec: values.durationSec, completed: values.completed, updatedAt: values.updatedAt },
+      set: { positionSec: values.positionSec, durationSec: values.durationSec, completed: values.completed, deviceId: values.deviceId, updatedAt: values.updatedAt },
     });
   return json({ ok: true as const });
 }

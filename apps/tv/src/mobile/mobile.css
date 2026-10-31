@@ -822,7 +822,8 @@
 }
 .m-controls {
   position: absolute;
-  z-index: 2;
+  /* Au-dessus des messages : Retour et zapping restent accessibles en cas d'erreur. */
+  z-index: 4;
   top: 0;
   left: 0;
   right: 0;
@@ -837,7 +838,17 @@
 }
 .m-stage.is-shown .m-controls {
   opacity: 1;
+}
+/* Seuls les boutons captent le doigt : un appui ailleurs masque les commandes. */
+.m-stage.is-shown .m-controls button,
+.m-stage.is-shown .m-controls input {
   pointer-events: auto;
+}
+.m-stage.has-msg .m-controls {
+  background: transparent;
+}
+.m-stage.has-msg .m-ctl-mid {
+  visibility: hidden;
 }
 .m-ctl-top,
 .m-ctl-bottom {
@@ -964,4 +975,43 @@
     top: calc(var(--sat) + 37.125vw);
     border-bottom: 0;
   }
+}
+
+/* ----------------------------------------------------------- Télécommande */
+
+.m-pad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.m-pad-name {
+  color: var(--muted);
+}
+.m-pad-cross {
+  display: grid;
+  grid-template-columns: repeat(3, 64px);
+  grid-auto-rows: 64px;
+  gap: 8px;
+}
+.m-pad-row {
+  display: flex;
+  gap: 8px;
+  width: 208px;
+}
+.ui-touch .m-pad-key {
+  flex: 1;
+  min-height: 52px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  font-weight: 700;
+  text-align: center;
+}
+.ui-touch .m-pad-ok {
+  background: var(--accent);
+  color: #fff;
+}
+.m-sheet-body .m-list + .m-error,
+.m-sheet-body .m-label:first-child {
+  margin-top: 0;
 }

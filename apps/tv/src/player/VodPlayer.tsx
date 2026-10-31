@@ -7,7 +7,7 @@ import { Button } from '../components/Button';
 import { ProgressBar } from '../components/Cards';
 import { player } from './engine';
 import { usePlayer } from './usePlayer';
-import { TracksDialog } from './FullPlayer';
+import { castItems, TracksDialog } from './FullPlayer';
 import { PointerControls } from '../components/PointerControls';
 import { isPointerDevice } from '../lib/device';
 
@@ -18,8 +18,10 @@ const SEEK_COMMIT_MS = 600;
 const NEXT_COUNTDOWN = 10;
 
 export interface VodItem {
-  kind: 'vod' | 'episode';
+  /** `catchup` : replay, `id` est la chaîne et `window` le programme. */
+  kind: 'vod' | 'episode' | 'catchup';
   id: number;
+  window?: { start: number; stop: number };
   title: string;
   subtitle?: string | null;
   startAt?: number;
@@ -43,6 +45,8 @@ export function VodPlayer({ item, next, onPlayNext, onExit }: Props) {
   const [seekTarget, setSeekTarget] = useState<number | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const source = (mode?: 'hls') =>
+    item.kind === 'catchup' ? api.catchup(item.id, item.window!.start, item.window!.stop, mode) : api.play(item.kind, item.id);
   const [, setTick] = useState(0);
   const hideTimer = useRef(0);
   const seek = useRef({ timer: 0, presses: 0, last: 0 });
@@ -53,8 +57,7 @@ export function VodPlayer({ item, next, onPlayNext, onExit }: Props) {
     setLoadError(null);
     setCountdown(null);
     player.setView({ mode: 'full' });
-    api
-      .play(item.kind, item.id)
+    source()
       .then((r) => player.load({ url: r.url, type: r.type, live: false, startAt: item.startAt || undefined }))
       .catch((e: ApiError) => setLoadError(e.message || 'Lecture impossible.'));
     show();
@@ -65,11 +68,12 @@ export function VodPlayer({ item, next, onPlayNext, onExit }: Props) {
       window.clearTimeout(hideTimer.current);
       window.clearTimeout(seek.current.timer);
     };
-  }, [item.kind, item.id]);
+  }, [item.kind, item.id, item.window && item.window.start]);
 
   /* ---------------------------------------------- Sauvegarde position */
 
   const save = () => {
+    if (item.kind === 'catchup') return; // pas de reprise pour un replay
     const pos = player.position();
     const dur = player.duration();
     if (!dur || pos < 5) return;
@@ -92,7 +96,7 @@ export function VodPlayer({ item, next, onPlayNext, onExit }: Props) {
   useEffect(() => {
     if (p.state !== 'ended') return;
     const dur = player.duration();
-    if (dur) api.saveProgress(item.kind, item.id, dur, dur).catch(() => undefined);
+    if (dur && item.kind !== 'catchup') api.saveProgress(item.kind, item.id, dur, dur).catch(() => undefined);
     if (next && onPlayNext) setCountdown(NEXT_COUNTDOWN);
     else onExit();
   }, [p.state]);
@@ -219,6 +223,7 @@ export function VodPlayer({ item, next, onPlayNext, onExit }: Props) {
             ['+10 s', 'right'],
             ['Pistes', 'yellow'],
             ['Plein écran', 'fullscreen'],
+            ...castItems(() => source('hls'), item.title, () => player.position()),
           ]}
         />
         <div class={'player-bar vod-bar' + (overlay || loading || p.state === 'paused' || seekTarget !== null ? ' is-visible' : '')}>

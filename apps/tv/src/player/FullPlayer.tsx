@@ -8,8 +8,11 @@ import { usePlayer } from './usePlayer';
 import { ProgressBar } from '../components/Cards';
 import { epgFor, onEpgChange, progressOf } from '../lib/epg-store';
 import { hhmm } from '../lib/format';
-import { PointerControls } from '../components/PointerControls';
+import { PointerControls, type PointerItem } from '../components/PointerControls';
 import { isPointerDevice } from '../lib/device';
+import { api } from '../lib/api';
+import { canCast, canPip, castMedia, togglePip } from './cast';
+import type { PlayResponse } from '@iptv/shared';
 
 const OVERLAY_MS = 4000;
 const DIGIT_WAIT_MS = 1500;
@@ -24,6 +27,14 @@ interface Props {
   onNumber: (n: number) => void;
   onLast: () => void;
   onExit: () => void;
+}
+
+/** Boutons PC : image dans l'image et Chromecast, s'ils sont disponibles. */
+export function castItems(source: () => Promise<PlayResponse>, title: string, startAt?: () => number): PointerItem[] {
+  const out: PointerItem[] = [];
+  if (canPip()) out.push(["Image dans l'image", togglePip]);
+  if (canCast()) out.push(['Chromecast', () => castMedia(source, title, startAt && startAt()).catch(() => undefined)]);
+  return out;
 }
 
 const pad = (n: number) => (n < 10 ? '0' + n : String(n));
@@ -164,6 +175,7 @@ export function FullPlayer({ channel, notice, favorite, onFavorite, onZap, onNum
             ['Dernière', 'green'],
             ['Pistes', 'yellow'],
             ['Plein écran', 'fullscreen'],
+            ...castItems(() => api.play('live', channel.id, 'hls'), channel.name),
           ]}
         />
         <div class={'player-bar' + (overlay || loading ? ' is-visible' : '')}>

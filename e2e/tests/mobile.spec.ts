@@ -64,7 +64,7 @@ test('téléphone et tablette : liaison, navigation, filtre de langues, lecteur,
   await expect(tel.locator('.m-below .m-ch.is-active')).toContainText('Chaîne 1');
 
   // Commandes tactiles : zapping.
-  if (!(await tel.getByRole('button', { name: 'Chaîne suivante' }).isVisible())) await stage.tap({ position: { x: 20, y: 80 } });
+  if (!(await tel.locator('.m-stage.is-shown').count())) await stage.tap({ position: { x: 20, y: 80 } });
   await tel.getByRole('button', { name: 'Chaîne suivante' }).tap();
   await expect(tel.locator('.m-now h1')).toContainText('Chaîne 2');
 

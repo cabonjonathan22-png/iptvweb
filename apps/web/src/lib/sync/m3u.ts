@@ -123,6 +123,7 @@ async function writeBatch(ctx: PhaseCtx, batch: { e: M3uEntry; i: number }[]) {
         epgChannelId: e.tvgId ?? null,
         catchup: e.catchup ?? null,
         catchupDays: e.catchupDays ?? null,
+        catchupSource: e.catchupSource ?? null,
         httpUserAgent: e.userAgent ?? null,
         httpReferrer: e.referrer ?? null,
         sortOrder: i,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { TvMeResponse } from '@iptv/shared';
-import { AppCtx, type AppApi, type Entry, type ScreenName } from './app-context';
+import { AppCtx, useApp, type AppApi, type Entry, type ScreenName } from './app-context';
 import { api, ApiError, setUnauthorizedHandler } from './lib/api';
 import { storage } from './lib/storage';
 import { focus } from './nav/focus';
@@ -18,6 +18,10 @@ import { MovieDetailScreen } from './screens/MovieDetail';
 import { SeriesDetailScreen } from './screens/SeriesDetail';
 import { SearchScreen } from './screens/Search';
 import { session } from './lib/session';
+import { openPlayback, startRemoteReceiver } from './lib/remote';
+import { clock } from './lib/format';
+import { storage as prefStorage } from './lib/storage';
+import type { Handoff, RemoteCommand } from '@iptv/shared';
 import { SettingsScreen } from './screens/Settings';
 import { KeyDebugScreen } from './screens/KeyDebug';
 
@@ -68,6 +72,7 @@ export function App() {
         else setExitOpen(true); // jamais de fermeture involontaire depuis l'écran racine
       },
       reset,
+      open: (name, params) => setStack([entry('home'), entry(name, params)]),
       onUnauthorized: toPairing,
       boot: () => {
         if (booting.current) return;
@@ -104,6 +109,7 @@ export function App() {
   useEffect(() => {
     setUnauthorizedHandler(app.onUnauthorized);
     app.boot();
+    return startRemoteReceiver(app);
   }, []);
   useEffect(() => {
     if (stack.length || bootError) {
@@ -183,9 +189,59 @@ export function App() {
           <Screen params={top.params} />
         </FocusLayer>
       )}
+      {top && top.name === 'home' && <HandoffPrompt key={top.key} />}
       {!Screen && bootError && <BootError message={bootError} onRetry={app.boot} />}
       {exitOpen && <ExitDialog onClose={() => setExitOpen(false)} />}
     </AppCtx.Provider>
+  );
+}
+
+const HANDOFF_SEEN = 'handoffSeen';
+
+/** À l'accueil : continuer ici ce qui a été commencé sur un autre appareil. */
+function HandoffPrompt() {
+  const app = useApp();
+  const [h, setH] = useState<Handoff | null>(null);
+  const stamp = (x: Handoff) => (x.kind === 'live' ? 'live:' + x.channel.id : x.kind + ':' + x.id);
+  useEffect(() => {
+    api
+      .handoff()
+      .then((r) => {
+        if (r && prefStorage.getPref<string>(HANDOFF_SEEN, '') !== stamp(r)) setH(r);
+      })
+      .catch(() => undefined);
+  }, []);
+  if (!h) return null;
+  const dismiss = () => {
+    prefStorage.setPref(HANDOFF_SEEN, stamp(h));
+    setH(null);
+  };
+  const resume = () => {
+    dismiss();
+    const cmd: RemoteCommand =
+      h.kind === 'live'
+        ? { type: 'live', channel: h.channel }
+        : h.kind === 'vod'
+          ? { type: 'vod', id: h.id, startAt: h.position }
+          : { type: 'episode', id: h.id, seriesId: h.seriesId, startAt: h.position };
+    openPlayback(app, cmd);
+  };
+  return (
+    <Dialog name="dlg-handoff" title="Continuer ici ?" onClose={dismiss}>
+      <p class="dialog-text">
+        {h.kind === 'live' ? h.channel.name : h.name}
+        {h.kind === 'episode' ? ' · ' + h.subtitle : ''}
+        {h.kind === 'live' ? '' : ', à ' + clock(h.position)}, sur {h.deviceName}.
+      </p>
+      <div class="row-actions">
+        <Button id="handoff-ok" variant="primary" autoFocus onSelect={resume}>
+          {h.kind === 'live' ? 'Regarder' : 'Reprendre'}
+        </Button>
+        <Button id="handoff-no" onSelect={dismiss}>
+          Plus tard
+        </Button>
+      </div>
+    </Dialog>
   );
 }
 

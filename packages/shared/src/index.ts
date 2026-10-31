@@ -8,4 +8,5 @@ export * from './json-stream';
 export * from './xtream';
 export * from './net-guard';
 export * from './langs';
+export * from './catchup';
 export * from './xmltv';

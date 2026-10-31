@@ -3,6 +3,8 @@ import type {
   ContentLanguage,
   EpgGridRow,
   EpgNowNext,
+  EpgProgram,
+  Handoff,
   HomeResponse,
   MovieDetail,
   Page,
@@ -15,6 +17,8 @@ import type {
   PairStatusResponse,
   PlayKind,
   PlayResponse,
+  RemoteCommand,
+  RemoteTarget,
   TvCategory,
   TvChannel,
   TvMeResponse,
@@ -85,6 +89,15 @@ export function createTvApi(transport: Transport, getToken: () => string | null,
     liveChannelByNum: (num: number) => call<{ channel: TvChannel | null }>('GET', '/api/tv/live/channel?num=' + num),
     play: (kind: PlayKind, id: number, mode?: 'hls' | 'ts') =>
       call<PlayResponse>('GET', '/api/tv/play?kind=' + kind + '&id=' + id + (mode ? '&mode=' + mode : '')),
+    /** Replay d'un programme passé (millisecondes). */
+    catchup: (channelId: number, start: number, stop: number, mode?: 'hls' | 'ts') =>
+      call<PlayResponse>('GET', '/api/tv/play?kind=catchup&id=' + channelId + '&start=' + start + '&stop=' + stop + (mode ? '&mode=' + mode : '')),
+    epgChannel: (channelId: number, from: number, to: number) =>
+      call<EpgProgram[]>('GET', '/api/tv/epg/channel?id=' + channelId + '&from=' + from + '&to=' + to),
+    handoff: () => call<Handoff | null>('GET', '/api/tv/handoff'),
+    remotePoll: () => call<{ commands: RemoteCommand[] }>('GET', '/api/tv/remote'),
+    remoteSend: (deviceId: string, command: RemoteCommand) => call<{ ok: true }>('POST', '/api/tv/remote', { deviceId, command }),
+    remoteTargets: () => call<RemoteTarget[]>('GET', '/api/tv/remote/targets'),
     posters: (kind: 'vod' | 'series', category: number | 'all' | 'fav', offset: number, limit: number) =>
       call<Page<PosterCard>>(
         'GET',

@@ -39,7 +39,7 @@ function dedupe<T extends { externalId: string }>(rows: T[]): T[] {
 }
 
 const CHANNEL_UPDATE = excludedSet(channels, [
-  'categoryId', 'num', 'name', 'logo', 'streamUrl', 'epgChannelId', 'catchup', 'catchupDays',
+  'categoryId', 'num', 'name', 'logo', 'streamUrl', 'epgChannelId', 'catchup', 'catchupDays', 'catchupSource',
   'httpUserAgent', 'httpReferrer', 'sortOrder', 'syncGen',
 ]);
 const VOD_UPDATE = excludedSet(vodItems, [

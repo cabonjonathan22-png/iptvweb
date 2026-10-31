@@ -186,6 +186,28 @@ export interface ContentLanguage {
   categories: number;
 }
 
+/* ------------------------------------------- Télécommande, reprise, envoi */
+
+export type RemoteKey = 'up' | 'down' | 'left' | 'right' | 'ok' | 'back' | 'playPause' | 'chUp' | 'chDown';
+
+export type RemoteCommand =
+  | { type: 'wake' }
+  | { type: 'key'; key: RemoteKey }
+  | { type: 'live'; channel: TvChannel }
+  | { type: 'vod'; id: number; startAt: number }
+  | { type: 'episode'; id: number; seriesId: number; startAt: number };
+
+export interface RemoteTarget {
+  id: string;
+  name: string;
+}
+
+/** Lecture en cours ou récente sur un autre appareil du compte. */
+export type Handoff =
+  | { kind: 'live'; deviceName: string; channel: TvChannel }
+  | { kind: 'vod'; deviceName: string; id: number; name: string; subtitle: null; position: number }
+  | { kind: 'episode'; deviceName: string; id: number; seriesId: number; name: string; subtitle: string; position: number };
+
 export interface PlaylistSummary {
   id: string;
   name: string;

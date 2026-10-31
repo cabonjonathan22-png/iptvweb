@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Episode, SeriesDetail } from '@iptv/shared';
 import { useApp } from '../app-context';
 import { api, ApiError } from '../lib/api';
@@ -25,6 +25,8 @@ export function SeriesDetailScreen({ params }: { params?: Record<string, unknown
   const [seasonIdx, setSeasonIdx] = useState(0);
   const [epIdx, setEpIdx] = useState(0);
   const [playing, setPlaying] = useState<Episode | null>(null);
+  // Ouverture à distance (téléphone, reprise) : épisode et position demandés.
+  const remote = useRef({ episode: Number(params && params.playEpisode) || 0, startAt: Number(params && params.startAt) || 0 });
 
   const load = (initial: boolean) =>
     api
@@ -32,6 +34,11 @@ export function SeriesDetailScreen({ params }: { params?: Record<string, unknown
       .then((r) => {
         setS(r);
         setError(null);
+        if (remote.current.episode) {
+          const ep = r.seasons.reduce((acc: Episode[], se) => acc.concat(se.episodes), []).find((e) => e.id === remote.current.episode);
+          remote.current.episode = 0;
+          if (ep) setPlaying(ep);
+        }
         if (initial && r.resume) {
           // Positionne la saison / l'épisode à reprendre.
           r.seasons.forEach((se, si) =>
@@ -70,10 +77,14 @@ export function SeriesDetailScreen({ params }: { params?: Record<string, unknown
     return (
       <VodPlayer
         key={playing.id}
-        item={toItem(playing, resumeOf(playing))}
+        item={toItem(playing, remote.current.startAt || resumeOf(playing))}
         next={next ? toItem(next) : null}
-        onPlayNext={() => next && setPlaying({ ...next, progress: null })}
+        onPlayNext={() => {
+          remote.current.startAt = 0;
+          if (next) setPlaying({ ...next, progress: null });
+        }}
         onExit={() => {
+          remote.current.startAt = 0;
           setPlaying(null);
           load(false);
         }}

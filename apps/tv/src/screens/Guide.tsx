@@ -7,6 +7,7 @@ import { hhmm } from '../lib/format';
 import { useFocusable } from '../nav/hooks';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Img } from '../components/Img';
+import { VodPlayer, type VodItem } from '../player/VodPlayer';
 
 /* Géométrie (base 1080p). */
 const CH_W = 340;
@@ -18,13 +19,17 @@ const VISIBLE = 6;
 const STEP_MS = 30 * 60_000;
 const PAGE = 30;
 
+/** Le guide remonte aussi loin que l'EPG conservé par le serveur. */
+const HISTORY_MS = 24 * 3600_000;
+
 const floor30 = (t: number) => Math.floor(t / STEP_MS) * STEP_MS;
 
 /**
  * Guide TV : grille temporelle virtualisée. Seules les ~6 rangées visibles
  * sont rendues ; les programmes sont chargés par pages de 30 chaînes et par
  * fenêtres de 2 h. Haut/bas : chaînes ; gauche/droite : programmes (la grille
- * se décale par pas de 30 min) ; OK : regarder la chaîne.
+ * se décale par pas de 30 min) ; OK : regarder la chaîne, ou le replay d'un
+ * programme terminé si la chaîne le propose.
  */
 export function GuideScreen() {
   const app = useApp();
@@ -33,6 +38,7 @@ export function GuideScreen() {
   const [focusTime, setFocusTime] = useState(() => Date.now());
   const [total, setTotal] = useState(-1);
   const [error, setError] = useState<string | null>(null);
+  const [replay, setReplay] = useState<VodItem | null>(null);
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   const pages = useRef<{ [key: string]: EpgGridRow[] | 'loading' }>({});
 
@@ -72,7 +78,7 @@ export function GuideScreen() {
   );
 
   const moveTime = (t: number) => {
-    const min = floor30(Date.now()) - STEP_MS * 2;
+    const min = floor30(Date.now() - HISTORY_MS);
     const max = Date.now() + 22 * 3600_000;
     const next = Math.max(min, Math.min(max, t));
     setFocusTime(next);
@@ -83,7 +89,18 @@ export function GuideScreen() {
   const { ref, focused } = useFocusable<HTMLDivElement>({
     id: 'guide-grid',
     autoFocus: true,
-    onSelect: () => current && app.push('live', { play: current.channel, returnOnExit: true }),
+    onSelect: () => {
+      if (!current) return;
+      if (focusedProg && current.channel.catchup && focusedProg.stop <= Date.now()) {
+        setReplay({
+          kind: 'catchup',
+          id: current.channel.id,
+          title: focusedProg.title,
+          subtitle: current.channel.name + ' · ' + hhmm(focusedProg.start),
+          window: { start: focusedProg.start, stop: focusedProg.stop },
+        });
+      } else app.push('live', { play: current.channel, returnOnExit: true });
+    },
     onArrow: (dir) => {
       if (dir === 'up' || dir === 'down') {
         const n = row + (dir === 'down' ? 1 : -1);
@@ -136,7 +153,7 @@ export function GuideScreen() {
               if (w <= 2) return null;
               const isF = focused && i === row && focusedProg === p;
               return (
-                <div key={p.start} class={'guide-prog' + (isF ? ' is-focused' : '') + (p.start <= now && p.stop > now ? ' is-now' : '')} style={{ left: x + 'px', width: w - 6 + 'px' }}>
+                <div key={p.start} class={'guide-prog' + (isF ? ' is-focused' : '') + (p.start <= now && p.stop > now ? ' is-now' : '') + (r.channel.catchup && p.stop <= now ? ' is-replay' : '')} style={{ left: x + 'px', width: w - 6 + 'px' }}>
                   <span class="guide-prog-title">{p.title}</span>
                   <span class="guide-prog-time">{hhmm(p.start)}</span>
                 </div>
@@ -148,7 +165,9 @@ export function GuideScreen() {
   }
 
   return (
-    <div class="screen guide">
+    <>
+    {replay && <VodPlayer item={replay} onExit={() => setReplay(null)} />}
+    <div class="screen guide" style={replay ? { visibility: 'hidden' } : undefined}>
       <ScreenHeader title="Guide TV" backHint="Accueil" />
       <div class="guide-info">
         {current && (
@@ -158,6 +177,7 @@ export function GuideScreen() {
               {current.channel.name}
             </div>
             <ProgramInfo p={focusedProg} />
+            {focusedProg && current.channel.catchup && focusedProg.stop <= now && <p class="small guide-replay-hint">↺ Replay disponible : OK pour regarder</p>}
           </>
         )}
         {error && <p class="error-text">{error}</p>}
@@ -171,6 +191,7 @@ export function GuideScreen() {
         {rows}
       </div>
     </div>
+    </>
   );
 }
 

@@ -259,6 +259,8 @@ export const channels = pgTable(
     epgChannelId: text('epg_channel_id'),
     catchup: text('catchup'),
     catchupDays: integer('catchup_days'),
+    /** Modèle d'URL du replay (M3U : attribut catchup-source). */
+    catchupSource: text('catchup_source'),
     httpUserAgent: text('http_user_agent'),
     httpReferrer: text('http_referrer'),
     sortOrder: integer('sort_order').notNull().default(0),
@@ -419,6 +421,8 @@ export const watchProgress = pgTable(
     positionSec: integer('position_sec').notNull().default(0),
     durationSec: integer('duration_sec'),
     completed: boolean('completed').notNull().default(false),
+    /** Appareil de la dernière lecture : sert à proposer la reprise sur un autre. */
+    deviceId: uuid('device_id').references(() => devices.id, { onDelete: 'set null' }),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
   (t) => [

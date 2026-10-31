@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'preact/hooks';
-import type { ContentLanguage, Episode, HomeResponse, MovieDetail, PlaylistSummary, PosterCard, SearchResponse, SeriesDetail, TvCategory, TvChannel } from '@iptv/shared';
+import type { ContentLanguage, Episode, Handoff, HomeResponse, MovieDetail, PlaylistSummary, PosterCard, SearchResponse, SeriesDetail, TvCategory, TvChannel } from '@iptv/shared';
 import { api, API_URL, ApiError } from '../lib/api';
 import { epgFor, onEpgChange } from '../lib/epg-store';
-import { duration } from '../lib/format';
+import { clock, duration } from '../lib/format';
 import { dismissInstall, hasNativePrompt, isInstalled, onInstallChange, promptInstall, shouldSuggestInstall } from '../lib/install';
 import { isIOS } from '../lib/device';
 import { localPosition } from '../lib/local-progress';
@@ -16,6 +16,7 @@ import { Logo } from '../components/Logo';
 import { usePairing } from '../screens/usePairing';
 import { useMobile } from './context';
 import type { VodPlayback } from './Player';
+import { RemoteSheet } from './Remote';
 import { ChannelRow, ErrorState, Header, PinInput, PinSheet, PosterTile, posterMeta, Row, Sheet, Spinner, Windowed } from './ui';
 
 type Key = number | 'all' | 'fav';
@@ -101,6 +102,68 @@ function InstallBanner() {
   );
 }
 
+/* ---------------------------------------------------------------- Reprise */
+
+const HANDOFF_SEEN = 'handoffSeen';
+
+/** Continuer ici ce qui a été commencé sur un autre appareil. */
+function HandoffCard() {
+  const app = useMobile();
+  const [h, setH] = useState<Handoff | null>(null);
+  const stamp = (x: Handoff) => (x.kind === 'live' ? 'live:' + x.channel.id : x.kind + ':' + x.id);
+  useEffect(() => {
+    api
+      .handoff()
+      .then((r) => {
+        if (r && storage.getPref<string>(HANDOFF_SEEN, '') !== stamp(r)) setH(r);
+      })
+      .catch(() => undefined);
+  }, []);
+  if (!h) return null;
+  const dismiss = () => {
+    storage.setPref(HANDOFF_SEEN, stamp(h));
+    setH(null);
+  };
+  const resume = () => {
+    dismiss();
+    if (h.kind === 'live') app.push({ name: 'playLive', channel: h.channel });
+    else if (h.kind === 'vod') app.push({ name: 'playVod', playback: { kind: 'vod', id: h.id, title: h.name, startAt: h.position } });
+    else {
+      api
+        .series(h.seriesId)
+        .then((s) => app.push({ name: 'playVod', playback: episodePlayback(s, h.id, h.position) }))
+        .catch(() => app.push({ name: 'show', id: h.seriesId }));
+    }
+  };
+  return (
+    <div class="m-install">
+      <div class="m-install-text">
+        <strong>Continuer ici ?</strong>
+        <span>
+          {h.kind === 'live' ? h.channel.name : h.name + (h.subtitle ? ' · ' + h.subtitle : '') + ', à ' + clock(h.position)}, sur {h.deviceName}
+        </span>
+      </div>
+      <div class="m-actions">
+        <button class="m-btn m-btn-primary" onClick={resume}>
+          {h.kind === 'live' ? 'Regarder' : 'Reprendre'}
+        </button>
+        <button class="m-btn" onClick={dismiss}>
+          Plus tard
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Lecture d'un épisode, suivis des suivants de la série. */
+function episodePlayback(s: SeriesDetail, episodeId: number, startAt: number): VodPlayback {
+  const all = s.seasons.reduce((acc: Episode[], se) => acc.concat(se.episodes), []);
+  const label = (e: Episode) => 'S' + e.season + ' · E' + e.episode + (e.title ? ' · ' + e.title : '');
+  const of = (e: Episode, at: number): VodPlayback => ({ kind: 'episode', id: e.id, seriesId: s.id, title: s.name, subtitle: label(e), startAt: at });
+  const i = Math.max(0, all.findIndex((e) => e.id === episodeId));
+  return { ...of(all[i]!, startAt), queue: all.slice(i + 1).map((e) => of(e, 0)) };
+}
+
 /* ---------------------------------------------------------------- Accueil */
 
 export function HomeScreen() {
@@ -123,6 +186,7 @@ export function HomeScreen() {
         <Logo size={32} />
       </div>
       <div class="m-fill m-scroll">
+        <HandoffCard />
         <InstallBanner />
         {error && <ErrorState error={error} onRetry={load} />}
         {!home && !error && <Spinner />}
@@ -469,12 +533,7 @@ export function ShowScreen({ id }: { id: number }) {
 
   const all = s.seasons.reduce((acc: Episode[], se) => acc.concat(se.episodes), []);
   const resumeOf = (e: Episode) => (e.progress && !e.progress.completed && e.progress.position > 30 ? e.progress.position : 0);
-  const label = (e: Episode) => 'S' + e.season + ' · E' + e.episode + (e.title ? ' · ' + e.title : '');
-  const toPlayback = (e: Episode, startAt: number): VodPlayback => ({ kind: 'episode', id: e.id, title: s.name, subtitle: label(e), startAt });
-  const playEp = (e: Episode) => {
-    const i = all.findIndex((x) => x.id === e.id);
-    app.push({ name: 'playVod', playback: { ...toPlayback(e, resumeOf(e)), queue: all.slice(i + 1).map((x) => toPlayback(x, 0)) } });
-  };
+  const playEp = (e: Episode) => app.push({ name: 'playVod', playback: episodePlayback(s, e.id, resumeOf(e)) });
   const resumeEp = s.resume ? all.find((e) => e.id === s.resume!.episodeId) : all[0];
   const shownSeason = season !== null ? season : resumeEp ? resumeEp.season : s.seasons[0] ? s.seasons[0].season : 0;
   const current = s.seasons.find((x) => x.season === shownSeason);
@@ -635,7 +694,7 @@ const TRACK_LANGS: [string, string][] = [
 
 export function SettingsScreen() {
   const app = useMobile();
-  const [panel, setPanel] = useState<null | 'playlists' | 'langs' | 'pin' | 'unlink' | 'install'>(null);
+  const [panel, setPanel] = useState<null | 'playlists' | 'langs' | 'pin' | 'unlink' | 'install' | 'remote'>(null);
   const [, refresh] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
     // Le chargement du démarrage peut ne pas être terminé.
@@ -708,6 +767,10 @@ export function SettingsScreen() {
           </label>
         </div>
         <div class="m-group">
+          <button class="m-set" onClick={() => setPanel('remote')}>
+            <span>Télécommande de la TV</span>
+            <span class="m-muted">›</span>
+          </button>
           <button class="m-set" onClick={() => setPanel('pin')}>
             <span>Contrôle parental</span>
             <span class="m-muted">{s.hasPin ? 'code défini' : 'aucun code'}</span>
@@ -740,6 +803,7 @@ export function SettingsScreen() {
       {panel === 'playlists' && <PlaylistsSheet onClose={close} />}
       {panel === 'langs' && <LanguagesSheet onClose={close} onChange={() => refresh(undefined)} />}
       {panel === 'install' && <InstallHelp onClose={close} />}
+      {panel === 'remote' && <RemoteSheet onClose={close} />}
       {panel === 'pin' && (
         <PinSetupSheet
           hasPin={s.hasPin}

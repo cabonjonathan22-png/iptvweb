@@ -166,6 +166,19 @@ export const XTREAM_PHASES: Record<string, PhaseHandler> = {
   series: streamsPhase('get_series', writeSeries),
 };
 
+const zones = new Map<string, { zone: string | null; until: number }>();
+
+/** Fuseau du serveur du fournisseur : les URL de replay s'expriment à son heure. */
+export async function xtreamTimezone(c: XtreamCreds): Promise<string | null> {
+  const hit = zones.get(c.server);
+  if (hit && hit.until > Date.now()) return hit.zone;
+  const zone = await fetchJson<{ server_info?: { timezone?: string } }>(xtreamApiUrl(c), 8_000)
+    .then((r) => (r.server_info && r.server_info.timezone) || null)
+    .catch(() => null);
+  zones.set(c.server, { zone, until: Date.now() + 3600_000 });
+  return zone;
+}
+
 /** Vérifie les identifiants avant enregistrement (ajout / modification de playlist). */
 export async function checkXtreamAccount(c: XtreamCreds) {
   const info = await fetchJson<{ user_info?: XtreamUserInfo }>(xtreamApiUrl(c), 15_000).catch((e) => {

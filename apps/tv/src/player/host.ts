@@ -13,6 +13,7 @@ export function mountVideoLayer(frame: HTMLElement): void {
   const video = document.createElement('video');
   video.setAttribute('playsinline', '');
   video.setAttribute('preload', 'auto');
+  video.setAttribute('x-webkit-airplay', 'allow');
   layer.appendChild(video);
   frame.insertBefore(layer, frame.firstChild);
   player.attach(video);

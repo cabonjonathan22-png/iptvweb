@@ -4,6 +4,8 @@
  */
 import { and, eq } from 'drizzle-orm';
 import {
+  m3uCatchupUrl,
+  xtreamCatchupUrl,
   xtreamEpisodeUrl,
   xtreamLiveUrl,
   xtreamVodUrl,
@@ -15,6 +17,7 @@ import {
 import { proxiedUrl } from '@iptv/shared/stream-token';
 import { getDb, schema } from './db';
 import { decryptJson } from './crypto';
+import { xtreamTimezone } from './sync/xtream';
 import { categoryLocked } from './user-data';
 
 type Playlist = typeof schema.playlists.$inferSelect;
@@ -93,11 +96,51 @@ export async function resolvePlayback(
     upstream = creds ? xtreamEpisodeUrl(creds, e.externalId, e.containerExt || 'mp4') : e.streamUrl;
   }
   if (!upstream) return 'no_source';
+  return toPlayResponse(upstream, live, !!creds, ua, ref);
+}
 
+/** Replay le plus long accepté : au-delà, la demande n'a pas de sens pour un programme. */
+const MAX_CATCHUP_MS = 8 * 3600_000;
+
+export type CatchupError = PlaybackError | 'no_catchup' | 'bad_window';
+
+export async function resolveCatchup(
+  playlist: Playlist,
+  id: number,
+  start: number,
+  stop: number,
+  mode: 'hls' | 'ts' | undefined,
+  lockedOk: boolean,
+): Promise<PlayResponse | CatchupError> {
+  const now = Date.now();
+  if (start >= now || stop <= start || stop - start > MAX_CATCHUP_MS) return 'bad_window';
+  const db = await getDb();
+  const c = await db.query.channels.findFirst({
+    where: and(eq(schema.channels.id, id), eq(schema.channels.playlistId, playlist.id)),
+  });
+  if (!c) return 'not_found';
+  if (!c.catchup) return 'no_catchup';
+  if (!lockedOk && (await categoryLocked(c.categoryId))) return 'locked';
+  if (c.catchupDays && start < now - c.catchupDays * 86400_000) return 'bad_window';
+
+  // Programme en cours : on le reprend depuis son début, jusqu'à maintenant.
+  const w = { start, stop: Math.min(stop, now) };
+  const creds = playlist.type === 'xtream' && playlist.credentialsEnc ? decryptJson<XtreamCreds>(playlist.credentialsEnc) : null;
+  const upstream = creds
+    ? xtreamCatchupUrl(creds, c.externalId, w, mode === 'hls' ? 'm3u8' : 'ts', await xtreamTimezone(creds))
+    : c.streamUrl
+      ? m3uCatchupUrl(c.streamUrl, c.catchup, c.catchupSource, w, now)
+      : null;
+  if (!upstream) return 'no_source';
+  const res = toPlayResponse(upstream, true, !!creds, c.httpUserAgent ?? undefined, c.httpReferrer ?? undefined);
+  return { ...res, live: false };
+}
+
+function toPlayResponse(upstream: string, live: boolean, hasCreds: boolean, ua?: string, ref?: string): PlayResponse {
   const type = streamTypeOf(upstream, live);
   const proxy = proxyConfig();
   // Direct seulement si l'origine est déjà en HTTPS sans en-têtes spéciaux et sans identifiants à cacher.
-  const direct = !proxy || (upstream.startsWith('https://') && !ua && !ref && !creds);
+  const direct = !proxy || (upstream.startsWith('https://') && !ua && !ref && !hasCreds);
   if (direct) {
     return {
       url: upstream,

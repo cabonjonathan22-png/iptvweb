@@ -34,6 +34,12 @@ L'architecture et les choix techniques sont détaillés dans [PLAN.md](PLAN.md).
 
 **Filtre de langues** (tous les appareils, enregistré sur le compte) : n'afficher que les catégories de certaines langues. La langue est déduite du nom de la catégorie (`FR | Sport`, `Allemagne`…) ; une catégorie sans langue reconnue reste visible.
 
+**Entre appareils**
+- **Replay** : depuis le guide sur TV et PC, depuis le lecteur sur téléphone, pour les chaînes qui le proposent (Xtream et conventions M3U `catchup`). Limité aux dernières 24 h, durée de conservation du guide.
+- **Reprise** : ce qui vient d'être regardé sur un autre appareil est proposé à l'accueil, en un appui.
+- **Envoi vers la TV et télécommande** : depuis le téléphone, vers les TV et PC allumés sur Oria. Une liaison par interrogation du serveur : 4 s au repos, 1 s quand une télécommande est ouverte, et plus rien après 2 h sans activité ni lecture, pour laisser la base gratuite en veille.
+- **Image dans l'image, Chromecast, AirPlay** : proposés selon le navigateur. Chromecast lit le HLS et le MP4, pas le MPEG-TS ni le MKV.
+
 **Dashboard** (mobile-first) : comptes, TV liées (renommer, révoquer, playlist), playlists (Xtream, lien ou fichier M3U, guide XMLTV), statut de synchro, catégories (masquer, renommer, réordonner, verrouiller), aperçu avec lecteur de test, réglages et code parental.
 
 ---
@@ -218,7 +224,7 @@ Cron 12 h ──▶ /api/cron/sync : playlists à rafraîchir + jobs abandonnés
 
 ## Performance (mesurée au build)
 
-- Bundle TV chargé au démarrage : **~102 Ko gzip** (40 Ko d'app et 62 Ko de polyfills legacy) ; l'interface tactile (~16 Ko) n'est chargée que sur téléphone et tablette. hls.js (~190 Ko) et mpegts.js (~62 Ko) ne sont chargés qu'à la première lecture qui en a besoin.
+- Bundle TV chargé au démarrage : **~104 Ko gzip** (42 Ko d'app et 62 Ko de polyfills legacy) ; l'interface tactile (~18 Ko) n'est chargée que sur téléphone et tablette. hls.js (~190 Ko) et mpegts.js (~62 Ko) ne sont chargés qu'à la première lecture qui en a besoin.
 - Le shell HTML s'affiche avant le JS, puis des skeletons pendant le chargement des données. L'accueil arrive en une seule requête.
 - Listes, grilles, rangées et guide sont virtualisés : environ 15 à 30 nœuds par liste, quelle que soit sa taille. Les images hors écran sont démontées, donc libérées.
 - Animations limitées à `transform` et `opacity`. Une seule balise `<video>`, placée hors de la scène mise à l'échelle.

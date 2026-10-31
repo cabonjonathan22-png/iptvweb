@@ -1,5 +1,5 @@
 import { apiError, json } from '@/lib/http';
-import { resolvePlayback } from '@/lib/playback';
+import { resolveCatchup, resolvePlayback } from '@/lib/playback';
 import { lockedError, tvContext } from '@/lib/tv-api';
 
 /** ?kind=live|vod|episode&id=…&mode=hls|ts -> URL lisible par la TV (souvent via le proxy de flux). */
@@ -10,6 +10,18 @@ export async function GET(req: Request) {
   const kind = sp.get('kind');
   const id = Number(sp.get('id'));
   const mode = sp.get('mode');
+  if (kind === 'catchup') {
+    const start = Number(sp.get('start'));
+    const stop = Number(sp.get('stop'));
+    if (!Number.isInteger(id) || !isFinite(start) || !isFinite(stop)) return apiError(400, 'bad_request');
+    const r = await resolveCatchup(ctx.playlist, id, start, stop, mode === 'ts' || mode === 'hls' ? mode : undefined, ctx.lockedOk);
+    if (r === 'locked') return lockedError();
+    if (r === 'not_found') return apiError(404, 'not_found', 'Chaîne introuvable (playlist resynchronisée ?).');
+    if (r === 'no_catchup') return apiError(400, 'no_catchup', "Cette chaîne ne propose pas de replay.");
+    if (r === 'bad_window') return apiError(400, 'bad_window', "Ce programme n'est pas disponible en replay.");
+    if (r === 'no_source') return apiError(404, 'no_source', "Le replay de cette chaîne n'est pas exploitable.");
+    return json(r, { headers: { 'Cache-Control': 'no-store' } });
+  }
   if ((kind !== 'live' && kind !== 'vod' && kind !== 'episode') || !Number.isInteger(id)) {
     return apiError(400, 'bad_request');
   }

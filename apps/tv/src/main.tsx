@@ -12,6 +12,7 @@ import { mountVideoLayer } from './player/host';
 import { device, isNarrow, isPointerDevice, touchUi } from './lib/device';
 import './lib/install';
 import { installPointerGestures } from './nav/pointer';
+import { initCast } from './player/cast';
 import { player } from './player/engine';
 
 const root = document.getElementById('root')!;
@@ -27,7 +28,10 @@ if (touchUi) {
   applyScale(stage, frame);
   mountVideoLayer(frame);
   if (flags.slow) startCpuThrottle();
-  if (isPointerDevice) installPointerGestures(frame);
+  if (isPointerDevice) {
+    installPointerGestures(frame);
+    initCast();
+  }
   render(<App />, stage);
 }
 

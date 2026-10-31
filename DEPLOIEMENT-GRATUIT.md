@@ -26,6 +26,23 @@ Pour redéployer : `node scripts/deploy.mjs web`, `tv` ou `all`.
 - **Proxy de flux** : <https://oria-stream-proxy.onrender.com> (Render Free, sans carte).
 - **E-mails de connexion** : Resend (clé `RESEND_API_KEY`), sans domaine vérifié.
 
+## Connexion avec Google (gratuit, 5 min)
+
+Le bouton « Continuer avec Google » n'apparaît qu'une fois ces deux variables définies.
+
+1. Sur <https://console.cloud.google.com>, crée un projet, puis ouvre **APIs et services → Écran de consentement OAuth** : type **Externe**, nom Oria, ton adresse. Publie l'application pour que la connexion ne soit pas limitée aux comptes de test.
+2. **Identifiants → Créer des identifiants → ID client OAuth → Application Web**. Dans **URI de redirection autorisés**, ajoute :
+   `https://oria-web-omega.vercel.app/api/auth/callback/google`
+3. Copie l'ID et le secret, puis, à la racine du dépôt :
+   ```bash
+   vercel link --yes --project oria-web --scope voyaj1
+   vercel env add AUTH_GOOGLE_ID production
+   vercel env add AUTH_GOOGLE_SECRET production
+   node scripts/deploy.mjs web
+   ```
+
+Un compte déjà créé par lien e-mail avec la même adresse retrouve ses données.
+
 ## Limites de cette installation
 
 - **Render** se met en veille après 15 min : la première chaîne peut mettre 30 à 60 s à démarrer. Le trafic gratuit est limité ; au-delà, le service est suspendu jusqu'au mois suivant, sans frais.

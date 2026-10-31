@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'preact/hooks';
-import type { TvChannel } from '@iptv/shared';
+import type { EpgProgram, RemoteCommand, TvChannel } from '@iptv/shared';
 import { api, ApiError } from '../lib/api';
 import { isIOS } from '../lib/device';
 import { epgFor, onEpgChange, progressOf } from '../lib/epg-store';
@@ -9,8 +9,10 @@ import { PagedSource } from '../lib/paged-source';
 import { prefs } from '../lib/prefs';
 import { player } from '../player/engine';
 import { usePlayer } from '../player/usePlayer';
-import { goBack } from './nav';
-import { ChannelRow, Icon, PinSheet, Sheet, Windowed } from './ui';
+import { goBack, pushBack } from './nav';
+import { initCast } from '../player/cast';
+import { CastSheet } from './Remote';
+import { ChannelRow, Icon, PinSheet, Sheet, Spinner, Windowed } from './ui';
 
 const OVERLAY_MS = 4000;
 const SAVE_EVERY_MS = 10_000;
@@ -135,6 +137,10 @@ export function LivePlayer({ channel, source: given, index }: { channel: TvChann
   useVideoStage();
   const p = usePlayer();
   const overlay = useOverlay();
+  const [cast, setCast] = useState(false);
+  const [replayList, setReplayList] = useState(false);
+  const [replay, setReplay] = useState<VodPlayback | null>(null);
+  const started = useRef(false);
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   const [current, setCurrent] = useState(channel);
   const [idx, setIdx] = useState(index === undefined ? -1 : index);
@@ -183,9 +189,21 @@ export function LivePlayer({ channel, source: given, index }: { channel: TvChann
       .liveChannels('fav', 0, 200)
       .then((r) => setFavorite(r.items.some((c) => c.id === channel.id)))
       .catch(() => undefined);
+    initCast();
     const off = onEpgChange(() => rerender(undefined));
     return off;
   }, []);
+
+  // Le replay partage la vidéo : à sa sortie, on revient au direct.
+  useEffect(() => {
+    if (replay) return pushBack(() => setReplay(null));
+    if (started.current) {
+      player.setView({ mode: 'full' });
+      load(current);
+    }
+    started.current = true;
+    return undefined;
+  }, [!!replay]);
 
   const toggleFav = () => {
     const on = !favorite;
@@ -197,9 +215,11 @@ export function LivePlayer({ channel, source: given, index }: { channel: TvChann
   const epg = epgFor(current.epgId);
   const shown = overlay.visible || loading || p.state === 'paused' || p.state === 'error' || !!notice;
 
+  if (replay) return <VodPlayer key={replay.window!.start} playback={replay} />;
+
   return (
     <div class="m-player">
-      <div class={'m-stage' + (shown ? ' is-shown' : '')} onClick={overlay.toggle}>
+      <div class={'m-stage' + (shown ? ' is-shown' : '') + (p.state === 'error' || notice ? ' has-msg' : '')} onClick={overlay.toggle}>
         {loading && <div class="m-spinner m-stage-spin" />}
         {p.state === 'error' && p.error && (
           <div class="m-stage-msg" onClick={(e) => e.stopPropagation()}>
@@ -211,8 +231,8 @@ export function LivePlayer({ channel, source: given, index }: { channel: TvChann
         )}
         {notice && <div class="m-stage-msg"><p>{notice}</p></div>}
         {loading && p.reconnect && <div class="m-stage-note">Reconnexion ({p.reconnect.attempt}/{p.reconnect.max})…</div>}
-        <div class="m-controls" onClick={(e) => e.stopPropagation()}>
-          <div class="m-ctl-top">
+        <div class="m-controls">
+          <div class="m-ctl-top" onClick={(e) => e.stopPropagation()}>
             <button class="m-ctl" aria-label="Retour" onClick={goBack}>
               <Icon name="back" />
             </button>
@@ -223,8 +243,11 @@ export function LivePlayer({ channel, source: given, index }: { channel: TvChann
             <button class="m-ctl m-ctl-text" onClick={() => setTracks(true)}>
               Pistes
             </button>
+            <button class="m-ctl m-ctl-text" onClick={() => setCast(true)}>
+              Diffuser
+            </button>
           </div>
-          <div class="m-ctl-mid">
+          <div class="m-ctl-mid" onClick={(e) => e.stopPropagation()}>
             {idx >= 0 && (
               <button class="m-ctl m-ctl-big" aria-label="Chaîne précédente" onClick={() => zap(-1)}>
                 ⏮
@@ -239,8 +262,13 @@ export function LivePlayer({ channel, source: given, index }: { channel: TvChann
               </button>
             )}
           </div>
-          <div class="m-ctl-bottom">
+          <div class="m-ctl-bottom" onClick={(e) => e.stopPropagation()}>
             <span class="m-live-dot">EN DIRECT</span>
+            {current.catchup && (
+              <button class="m-ctl m-ctl-text" onClick={() => setReplayList(true)}>
+                Replay
+              </button>
+            )}
             <button class="m-ctl m-ctl-text" onClick={toggleFull}>
               Plein écran
             </button>
@@ -282,6 +310,24 @@ export function LivePlayer({ channel, source: given, index }: { channel: TvChann
       </div>
 
       {tracks && <Tracks onClose={() => setTracks(false)} />}
+      {cast && (
+        <CastSheet
+          onClose={() => setCast(false)}
+          title={current.name}
+          command={() => ({ type: 'live', channel: current })}
+          source={() => api.play('live', current.id, 'hls')}
+        />
+      )}
+      {replayList && (
+        <ReplaySheet
+          channel={current}
+          onClose={() => setReplayList(false)}
+          onPick={(pb) => {
+            setReplayList(false);
+            setReplay(pb);
+          }}
+        />
+      )}
       {pin && (
         <PinSheet
           onClose={() => setPin(false)}
@@ -295,6 +341,44 @@ export function LivePlayer({ channel, source: given, index }: { channel: TvChann
   );
 }
 
+/** Programmes des dernières 24 h (durée de conservation du guide), du plus récent au plus ancien. */
+function ReplaySheet({ channel, onClose, onPick }: { channel: TvChannel; onClose: () => void; onPick: (p: VodPlayback) => void }) {
+  const [list, setList] = useState<EpgProgram[] | null>(null);
+  useEffect(() => {
+    const now = Date.now();
+    api
+      .epgChannel(channel.id, now - 24 * 3600_000, now)
+      .then((r) => setList(r.filter((x) => x.start < now).reverse()))
+      .catch(() => setList([]));
+  }, [channel.id]);
+  return (
+    <Sheet title="Replay" onClose={onClose}>
+      {!list && <Spinner />}
+      {list && !list.length && <p class="m-muted">Aucun programme connu pour cette chaîne.</p>}
+      <div class="m-list">
+        {list &&
+          list.map((x) => (
+            <button
+              key={x.start}
+              class="m-list-item"
+              onClick={() =>
+                onPick({ kind: 'catchup', id: channel.id, title: x.title, subtitle: channel.name + ' · ' + hhmm(x.start), window: { start: x.start, stop: x.stop } })
+              }
+            >
+              <span>
+                {dayLabel(x.start)}
+                {hhmm(x.start)} · {x.title}
+              </span>
+              {x.stop > Date.now() && <span class="m-muted">en cours</span>}
+            </button>
+          ))}
+      </div>
+    </Sheet>
+  );
+}
+
+const dayLabel = (t: number) => (new Date(t).getDate() === new Date().getDate() ? '' : 'Hier ');
+
 /** Précharge le programme en cours des lignes visibles. */
 function epgIds(source: PagedSource<TvChannel>, from: number, to: number) {
   source.loaded(from, to).forEach((c) => epgFor(c.epgId));
@@ -303,11 +387,15 @@ function epgIds(source: PagedSource<TvChannel>, from: number, to: number) {
 /* ------------------------------------------------------------ Film, série */
 
 export interface VodPlayback {
-  kind: 'vod' | 'episode';
+  /** `catchup` : replay, `id` est la chaîne et `window` le programme. */
+  kind: 'vod' | 'episode' | 'catchup';
   id: number;
   title: string;
   subtitle?: string | null;
   startAt?: number;
+  window?: { start: number; stop: number };
+  /** Série de l'épisode, pour l'ouvrir sur un autre appareil. */
+  seriesId?: number;
   /** Épisodes suivants de la série, enchaînés en fin de lecture. */
   queue?: VodPlayback[];
 }
@@ -318,17 +406,23 @@ export function VodPlayer({ playback }: { playback: VodPlayback }) {
   const [item, setItem] = useState(playback);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tracks, setTracks] = useState(false);
+  const [cast, setCast] = useState(false);
   const [drag, setDrag] = useState<number | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [, tick] = useReducer((n: number) => n + 1, 0);
   const lastTap = useRef<{ at: number; side: number }>({ at: 0, side: 0 });
   const next = item.queue && item.queue[0];
+  const source = (mode?: 'hls') =>
+    item.kind === 'catchup' ? api.catchup(item.id, item.window!.start, item.window!.stop, mode) : api.play(item.kind, item.id);
+  const remoteCommand = (): RemoteCommand =>
+    item.kind === 'vod'
+      ? { type: 'vod', id: item.id, startAt: player.position() }
+      : { type: 'episode', id: item.id, seriesId: item.seriesId!, startAt: player.position() };
 
   useEffect(() => {
     setLoadError(null);
     setCountdown(null);
-    api
-      .play(item.kind, item.id)
+    source(isIOS ? 'hls' : undefined)
       .then((r) => player.load({ url: r.url, type: r.type, live: false, startAt: item.startAt || undefined }))
       .catch((e: ApiError) => setLoadError(e.message || 'Lecture impossible.'));
     overlay.show();
@@ -337,6 +431,7 @@ export function VodPlayer({ playback }: { playback: VodPlayback }) {
   }, [item.kind, item.id]);
 
   const save = () => {
+    if (item.kind === 'catchup') return; // pas de reprise pour un replay
     const pos = player.position();
     const dur = player.duration();
     if (!dur || pos < 5) return;
@@ -357,7 +452,7 @@ export function VodPlayer({ playback }: { playback: VodPlayback }) {
   useEffect(() => {
     if (p.state !== 'ended') return;
     const dur = player.duration();
-    if (dur) api.saveProgress(item.kind, item.id, dur, dur).catch(() => undefined);
+    if (dur && item.kind !== 'catchup') api.saveProgress(item.kind, item.id, dur, dur).catch(() => undefined);
     if (next) setCountdown(NEXT_COUNTDOWN);
     else goBack();
   }, [p.state]);
@@ -395,11 +490,11 @@ export function VodPlayer({ playback }: { playback: VodPlayback }) {
   const pos = drag !== null ? drag : player.position();
   const loading = p.state === 'loading' || p.state === 'buffering';
   const error = loadError || (p.state === 'error' && p.error ? p.error.message : null);
-  const shown = overlay.visible || loading || p.state === 'paused' || !!error || drag !== null;
+  const shown = overlay.visible || loading || p.state === 'paused' || !!error || countdown !== null || drag !== null;
 
   return (
     <div class="m-player">
-      <div class={'m-stage' + (shown ? ' is-shown' : '')} onClick={onStageTap}>
+      <div class={'m-stage' + (shown ? ' is-shown' : '') + (error || countdown !== null ? ' has-msg' : '')} onClick={onStageTap}>
         {loading && <div class="m-spinner m-stage-spin" />}
         {error && (
           <div class="m-stage-msg" onClick={(e) => e.stopPropagation()}>
@@ -423,8 +518,8 @@ export function VodPlayer({ playback }: { playback: VodPlayback }) {
             </div>
           </div>
         )}
-        <div class="m-controls" onClick={(e) => e.stopPropagation()}>
-          <div class="m-ctl-top">
+        <div class="m-controls">
+          <div class="m-ctl-top" onClick={(e) => e.stopPropagation()}>
             <button class="m-ctl" aria-label="Retour" onClick={goBack}>
               <Icon name="back" />
             </button>
@@ -435,8 +530,11 @@ export function VodPlayer({ playback }: { playback: VodPlayback }) {
             <button class="m-ctl m-ctl-text" onClick={() => setTracks(true)}>
               Pistes
             </button>
+            <button class="m-ctl m-ctl-text" onClick={() => setCast(true)}>
+              Diffuser
+            </button>
           </div>
-          <div class="m-ctl-mid">
+          <div class="m-ctl-mid" onClick={(e) => e.stopPropagation()}>
             <button class="m-ctl m-ctl-big" aria-label="Reculer de 10 secondes" onClick={() => (player.seekBy(-10), overlay.show())}>
               −10
             </button>
@@ -447,7 +545,7 @@ export function VodPlayer({ playback }: { playback: VodPlayback }) {
               +10
             </button>
           </div>
-          <div class="m-ctl-bottom">
+          <div class="m-ctl-bottom" onClick={(e) => e.stopPropagation()}>
             <span class="m-time">{clock(pos)}</span>
             <input
               class="m-seek"
@@ -481,6 +579,15 @@ export function VodPlayer({ playback }: { playback: VodPlayback }) {
         </div>
       </div>
       {tracks && <Tracks onClose={() => setTracks(false)} />}
+      {cast && (
+        <CastSheet
+          onClose={() => setCast(false)}
+          title={item.title}
+          command={item.kind === 'catchup' ? undefined : remoteCommand}
+          source={() => source('hls')}
+          startAt={() => player.position()}
+        />
+      )}
     </div>
   );
 }

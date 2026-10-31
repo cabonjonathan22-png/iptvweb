@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { MovieDetail } from '@iptv/shared';
 import { useApp } from '../app-context';
 import { api, ApiError } from '../lib/api';
@@ -19,6 +19,8 @@ export function MovieDetailScreen({ params }: { params?: Record<string, unknown>
   const [error, setError] = useState<string | null>(null);
   const [pin, setPin] = useState(false);
   const [playing, setPlaying] = useState<VodItem | null>(null);
+  // Ouverture à distance (téléphone, reprise) : lecture directe à la position demandée.
+  const autoplay = useRef(!!(params && params.autoplay));
 
   const load = () =>
     api
@@ -26,6 +28,10 @@ export function MovieDetailScreen({ params }: { params?: Record<string, unknown>
       .then((r) => {
         setM(r);
         setError(null);
+        if (autoplay.current) {
+          autoplay.current = false;
+          setPlaying({ kind: 'vod', id: r.id, title: r.name, startAt: Number(params && params.startAt) || 0 });
+        }
       })
       .catch((e: ApiError) => {
         if (e.status === 403 && e.code === 'locked') setPin(true);

@@ -2,7 +2,7 @@ import { isPointerDevice, toggleFullscreen } from '../lib/device';
 import { sendKey } from '../nav/hooks';
 import type { Action } from '../nav/keys';
 
-export type PointerItem = [label: string, action: Action | 'fullscreen'];
+export type PointerItem = [label: string, action: Action | 'fullscreen' | (() => void)];
 
 /**
  * Boutons à l'écran du lecteur (PC, téléphone). Ils envoient les mêmes actions
@@ -19,7 +19,8 @@ export function PointerControls({ items, visible }: { items: PointerItem[]; visi
           class="pc-btn"
           onClick={(e) => {
             e.stopPropagation();
-            if (action === 'fullscreen') toggleFullscreen();
+            if (typeof action === 'function') action();
+            else if (action === 'fullscreen') toggleFullscreen();
             else sendKey(action);
           }}
         >
