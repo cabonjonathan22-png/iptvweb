@@ -25,6 +25,8 @@ Pour redéployer : `node scripts/deploy.mjs web`, `tv` ou `all`.
 
 - **Proxy de flux** : <https://oria-stream-proxy.onrender.com> (Render Free, sans carte).
 - **E-mails de connexion** : Resend (clé `RESEND_API_KEY`), sans domaine vérifié.
+- **MKV** : conversion à la volée par le proxy (`ffmpeg` dans l'image Docker), activée par `STREAM_PROXY_REMUX=1` sur `oria-web`. Si le proxy change, redéployer d'abord Render à la main (**Manual Deploy → Deploy latest commit**) : il ne se met pas à jour tout seul.
+- **Connexion Google** : projet Google Cloud `oria-83ea1`, client OAuth « Oria Web ».
 
 ## Connexion avec Google (gratuit, 5 min)
 
