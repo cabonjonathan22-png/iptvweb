@@ -14,6 +14,7 @@
  * rapide) sont ignorés, et l'instance précédente est détruite proprement.
  */
 import type { StreamType } from '@iptv/shared';
+import { device } from '../lib/device';
 import { flags } from '../lib/devflags';
 import { session } from '../lib/session';
 
@@ -24,6 +25,9 @@ export interface Source {
   startAt?: number;
   /** Fichier converti à la volée par le proxy (MKV…). */
   remux?: { base: string };
+  /** Direct : l'autre format, à essayer si celui-ci échoue. */
+  alternate?: () => Promise<{ url: string; type: StreamType }>;
+  onPlaying?: (type: StreamType) => void;
 }
 
 interface RemuxInfo {
@@ -70,12 +74,21 @@ export interface Track {
 
 export type View = { mode: 'hidden' } | { mode: 'preview'; x: number; y: number; w: number; h: number } | { mode: 'full' };
 
-const RETRY_DELAYS = [1000, 2000, 4000, 8000];
+/**
+ * Essais automatiques avant d'afficher une erreur (environ 40 s, plus le temps de chaque essai) :
+ * les refus passagers sont courants (limite de connexions du fournisseur au zapping, proxy qui se réveille).
+ */
+const RETRY_DELAYS = [300, 700, 1500, 2500, 4000, 6000, 8000, 8000, 8000];
+/** Chaîne répondant « n'existe pas » : on conclut plus vite. */
+const GONE_RETRIES = 4;
 /** Direct bloqué en chargement plus longtemps que ça : on relance le flux. */
-const STALL_MS = 12_000;
+const STALL_MS = 20_000;
+/** Une fois l'erreur affichée, on continue d'essayer en silence : elle disparaît dès que ça repart. */
+const SILENT_RETRY_MS = 15_000;
+const SILENT_RETRIES = 20;
 
 const MESSAGES = {
-  network: 'La chaîne ne répond pas. Le flux est peut-être hors ligne ou votre abonnement saturé.',
+  network: 'La chaîne ne répond pas pour l’instant. Nouvel essai automatique en cours…',
   unsupported: 'Ce fichier n’a pas pu être lu : format non pris en charge par votre TV, ou fichier indisponible chez votre fournisseur.',
   mkv: 'Ce fichier MKV n’a pas pu être lu : le navigateur de votre TV ne gère souvent pas ce format (ou le fichier est indisponible). Essayez une autre version si votre fournisseur en propose.',
   hevc: 'Cette vidéo est en HEVC (H.265), que ce navigateur ne sait pas décoder. Essayez sur un autre appareil, ou une autre version si votre fournisseur en propose.',
@@ -104,6 +117,8 @@ class Engine {
   private retryTimer = 0;
   private stallTimer = 0;
   private listeners: Array<() => void> = [];
+  private silent = false;
+  private silentLeft = 0;
 
   attach(v: HTMLVideoElement) {
     this.video = v;
@@ -111,7 +126,14 @@ class Engine {
       this.retries = 0;
       this.reconnect = null;
       this.clearStall();
+      this.silent = false;
+      this.error = null;
+      if (this.src && this.src.onPlaying) this.src.onPlaying(this.src.type);
       this.set('playing');
+    });
+    // Le réseau revient : inutile d'attendre le prochain essai.
+    window.addEventListener('online', () => {
+      if (this.state === 'error' && this.src && this.src.live) this.retry();
     });
     v.addEventListener('waiting', () => {
       if (this.state === 'error' || !this.src) return;
@@ -169,6 +191,8 @@ class Engine {
     this.remuxInfo = null;
     this.remuxOffset = src.remux && src.startAt ? Math.floor(src.startAt) : 0;
     this.remuxAudio = 0;
+    this.silent = false;
+    this.silentLeft = SILENT_RETRIES;
     this.start();
   }
 
@@ -177,6 +201,8 @@ class Engine {
     this.teardown();
     this.error = null;
     this.retries = 0;
+    this.silent = false;
+    this.silentLeft = SILENT_RETRIES;
     this.start();
   }
 
@@ -184,6 +210,7 @@ class Engine {
     this.teardown();
     this.src = null;
     this.error = null;
+    this.silent = false;
     this.set('idle');
   }
 
@@ -350,7 +377,7 @@ class Engine {
     let src = this.src;
     const v = this.video;
     if (!src || !v) return;
-    this.set('loading');
+    if (!this.silent) this.set('loading');
     this.armStall();
     try {
       if (src.remux) {
@@ -373,9 +400,11 @@ class Engine {
         src = { ...src, url: src.remux.base + '/' + this.remuxOffset + '/' + this.remuxAudio + '/index.m3u8', startAt: undefined };
       }
       if (src.type === 'hls') {
-        // Fichier converti : hls.js partout où il fonctionne ; le natif (iPhone) sinon.
+        // hls.js partout où il fonctionne : il gère les flux instables bien mieux que le lecteur
+        // natif des navigateurs récents. Natif : sans MSE (iPhone), et pour le direct sur TV.
         const hasMse = !!(window as any).MediaSource;
-        if (!flags.forceHlsJs && (!src.remux || !hasMse) && v.canPlayType('application/vnd.apple.mpegurl')) return this.native(src);
+        const useNative = !hasMse || (device === 'tv' && !src.remux);
+        if (!flags.forceHlsJs && useNative && v.canPlayType('application/vnd.apple.mpegurl')) return this.native(src);
         const Hls = (await import('hls.js')).default as any;
         if (s !== this.session) return;
         if (Hls.isSupported()) return this.withHls(Hls, src, s);
@@ -438,12 +467,14 @@ class Engine {
       // Conversion en cours : le début est la position voulue, pas le « direct ».
       startPosition: src.remux ? 0 : src.startAt || -1,
       // La première réponse peut attendre que le proxy se réveille et ouvre le fichier.
-      manifestLoadingTimeOut: src.remux ? 70_000 : 10_000,
-      levelLoadingTimeOut: src.remux ? 30_000 : 10_000,
+      manifestLoadingTimeOut: src.remux ? 70_000 : 15_000,
+      levelLoadingTimeOut: src.remux ? 30_000 : 15_000,
       liveDurationInfinity: !!src.remux,
       capLevelToPlayerSize: true,
-      manifestLoadingMaxRetry: 2,
+      // Les nouvelles tentatives du manifeste sont gérées par scheduleRetry (qui peut changer de format).
+      manifestLoadingMaxRetry: 0,
       levelLoadingMaxRetry: 3,
+      startFragPrefetch: true,
       fragLoadingMaxRetry: 4,
     });
     this.hls = hls;
@@ -457,13 +488,11 @@ class Engine {
         return;
       }
       if (d.type === Hls.ErrorTypes.NETWORK_ERROR) {
-        // Manifeste en 4xx : la chaîne n'existe pas / plus, une seule nouvelle tentative.
+        // 404 sur le manifeste : la chaîne n'existe sans doute plus. Un 403 ou un 5xx est souvent passager.
         const code = d.response && d.response.code;
-        if (code >= 400 && code < 500 && String(d.details).indexOf('manifest') >= 0) {
-          this.retries = Math.max(this.retries, RETRY_DELAYS.length - 1);
-        }
-        this.scheduleRetry('network');
-      } else this.fail('media');
+        this.scheduleRetry('network', (code === 404 || code === 410) && String(d.details).indexOf('manifest') >= 0);
+      } else if (src.live) this.scheduleRetry('media');
+      else this.fail('media');
     });
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
       if (s === this.session) this.tryPlay();
@@ -496,7 +525,7 @@ class Engine {
     this.mts = p;
     p.on(mpegts.Events.ERROR, (type: string) => {
       if (s !== this.session) return;
-      if (type === mpegts.ErrorTypes.NETWORK_ERROR) this.scheduleRetry('network');
+      if (type === mpegts.ErrorTypes.NETWORK_ERROR || src.live) this.scheduleRetry('network');
       else this.fail('media');
     });
     p.attachMediaElement(v);
@@ -520,10 +549,11 @@ class Engine {
     else this.fail('media');
   }
 
-  private scheduleRetry(kind: PlayerError['kind']) {
-    if (this.retries >= RETRY_DELAYS.length) return this.fail(kind);
+  private scheduleRetry(kind: PlayerError['kind'], gone = false) {
+    const budget = gone ? GONE_RETRIES : RETRY_DELAYS.length;
+    if (this.silent || this.retries >= budget) return this.fail(kind);
     const delay = RETRY_DELAYS[this.retries++]!;
-    this.reconnect = { attempt: this.retries, max: RETRY_DELAYS.length };
+    this.reconnect = { attempt: this.retries, max: budget };
     // VOD : on reprendra à la même position.
     const v = this.video;
     if (this.src && this.src.remux) {
@@ -531,7 +561,25 @@ class Engine {
     } else if (this.src && !this.src.live && v && v.currentTime > 1) this.src = { ...this.src, startAt: v.currentTime };
     this.teardown();
     this.set('loading');
-    this.retryTimer = window.setTimeout(() => this.start(), delay);
+    this.retryTimer = window.setTimeout(() => this.retryAttempt(), delay);
+  }
+
+  /** Une fois sur deux, le direct essaie l'autre format (certains fournisseurs n'en servent qu'un de façon fiable). */
+  private retryAttempt() {
+    const src = this.src;
+    if (!src) return;
+    if (!src.live || !src.alternate || this.retries % 2 === 1) return void this.start();
+    const session = this.session;
+    src
+      .alternate()
+      .then((n) => {
+        if (session !== this.session || this.src !== src) return;
+        this.src = { ...src, url: n.url, type: n.type };
+        this.start();
+      })
+      .catch(() => {
+        if (session === this.session && this.src === src) this.start();
+      });
   }
 
   private canPlayHevc(): boolean {
@@ -549,7 +597,20 @@ class Engine {
     const remux = this.src && this.src.remux;
     this.error = { kind, message: remux ? MESSAGES.remux : mkv ? MESSAGES.mkv : MESSAGES[kind] };
     this.state = 'error';
+    this.silent = false;
     this.emit();
+    if (this.src && this.src.live && this.silentLeft > 0) {
+      this.silentLeft--;
+      this.retryTimer = window.setTimeout(() => {
+        this.silent = true;
+        this.retryAttempt();
+      }, SILENT_RETRY_MS);
+    }
+  }
+
+  /** Charge hls.js à l'avance : la première chaîne n'attend pas son téléchargement. */
+  warm() {
+    import('hls.js').catch(() => undefined);
   }
 
   private armStall() {

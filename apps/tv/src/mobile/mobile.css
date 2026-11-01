@@ -1015,3 +1015,25 @@
 .m-sheet-body .m-label:first-child {
   margin-top: 0;
 }
+
+.m-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.m-flip svg {
+  transform: scaleX(-1);
+}
+.ui-touch .m-pad-key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ui-touch .m-ctl svg {
+  display: block;
+}
+.ui-touch .m-fav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

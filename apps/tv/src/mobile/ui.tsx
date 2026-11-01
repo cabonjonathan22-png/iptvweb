@@ -5,26 +5,11 @@ import { api, API_URL, ApiError } from '../lib/api';
 import { epgFor, progressOf } from '../lib/epg-store';
 import { hhmm } from '../lib/format';
 import { setUnlock } from '../lib/session';
+import { Icon } from '../components/Icon';
 import { Img } from '../components/Img';
 import { goBack, pushBack } from './nav';
 
-const ICONS: Record<string, string> = {
-  home: 'M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
-  live: 'M3 7h18v12H3zM8 3l4 4 4-4',
-  movies: 'M4 4h16v16H4zM8 4v16M16 4v16M4 9h4M4 15h4M16 9h4M16 15h4',
-  series: 'M7 7h13v13H7zM4 4h13M4 4v13',
-  search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-5-5',
-  settings: 'M4 7h10M18 7h2M4 17h2M10 17h10M16 5v4M8 15v4',
-  back: 'M15 5l-7 7 7 7',
-};
-
-export function Icon({ name, size = 24 }: { name: keyof typeof ICONS | string; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d={ICONS[name]} />
-    </svg>
-  );
-}
+export { Icon };
 
 export function Header({ title, back, children }: { title: string; back?: boolean; children?: ComponentChildren }) {
   return (
@@ -257,7 +242,7 @@ export function ChannelRow({
       </button>
       {onFavorite && (
         <button class={'m-fav' + (favorite ? ' is-on' : '')} aria-label={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'} aria-pressed={!!favorite} onClick={onFavorite}>
-          {favorite ? '♥' : '♡'}
+          <Icon name={favorite ? 'heartOn' : 'heart'} />
         </button>
       )}
     </div>

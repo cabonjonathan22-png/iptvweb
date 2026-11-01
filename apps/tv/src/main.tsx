@@ -11,6 +11,7 @@ import { flags, startCpuThrottle } from './lib/devflags';
 import { mountVideoLayer } from './player/host';
 import { device, isNarrow, isPointerDevice, touchUi } from './lib/device';
 import './lib/install';
+import { startProxyWake } from './lib/wake';
 import { installPointerGestures } from './nav/pointer';
 import { initCast } from './player/cast';
 import { player } from './player/engine';
@@ -33,6 +34,10 @@ if (touchUi) {
   if (isPointerDevice) initCast();
   render(<App />, stage);
 }
+
+startProxyWake();
+// Hors TV (mémoire limitée), le lecteur est prêt avant la première chaîne.
+if (device !== 'tv') window.setTimeout(() => player.warm(), 2000);
 
 // PC : la fenêtre passe d'étroite à large ou l'inverse, on change d'interface (sauf en pleine lecture).
 if (device === 'desktop') {

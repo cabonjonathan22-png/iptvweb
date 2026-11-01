@@ -128,12 +128,19 @@ const TEST_MP4 = process.env.MOCK_TEST_MP4 || 'https://test-videos.co.uk/vids/bi
 /** Flux HLS de test public (Mux), utilisé pour vérifier la lecture réelle. */
 const TEST_HLS = process.env.MOCK_TEST_HLS || 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
 
+let flakyCount = 0;
+
 /**
  * Flux factices : une chaîne sur trois redirige vers le flux de test, une sur
  * trois est « hors ligne » (404, pour tester l'écran d'erreur), le reste aussi
  * vers le flux de test.
  */
-function stream(res, id) {
+function stream(res, id, ext) {
+  // Chaîne 5 : panneau surchargé. Refuse le TS, et les premières demandes HLS (refus passager).
+  if (id === 1004 && (ext === 'ts' || flakyCount++ < 3)) {
+    res.writeHead(503);
+    return res.end();
+  }
   if (id % 3 === 1) {
     res.writeHead(404);
     return res.end();
@@ -145,7 +152,7 @@ function stream(res, id) {
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, base);
   const live = /^\/(?:live\/[^/]+\/[^/]+|stream)\/(\d+)\.(m3u8|ts)$/.exec(url.pathname);
-  if (live) return stream(res, Number(live[1]));
+  if (live) return stream(res, Number(live[1]), live[2]);
   if (/^\/timeshift\/[^/]+\/[^/]+\/\d+\/[\d:-]+\/\d+\.(ts|m3u8)$/.test(url.pathname)) {
     res.writeHead(302, { Location: TEST_HLS });
     return res.end();

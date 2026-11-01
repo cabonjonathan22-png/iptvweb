@@ -1,9 +1,10 @@
+import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { PlayResponse, RemoteCommand, RemoteKey, RemoteTarget } from '@iptv/shared';
 import { api, ApiError } from '../lib/api';
 import { canAirplay, canCast, canPip, castMedia, showAirplay, togglePip } from '../player/cast';
 import { player } from '../player/engine';
-import { Sheet, Spinner } from './ui';
+import { Icon, Sheet, Spinner } from './ui';
 
 /** Appareils du compte allumés sur Oria ; rafraîchi tant que le panneau est ouvert. */
 function useTargets() {
@@ -34,7 +35,7 @@ function Pad({ target }: { target: RemoteTarget }) {
     return () => window.clearInterval(t);
   }, [target.id]);
 
-  const key = (k: RemoteKey, label: string, aria: string, cls = '') => (
+  const key = (k: RemoteKey, label: ComponentChildren, aria: string, cls = '') => (
     <button class={'m-pad-key ' + cls} aria-label={aria} onClick={() => send({ type: 'key', key: k })}>
       {label}
     </button>
@@ -44,18 +45,18 @@ function Pad({ target }: { target: RemoteTarget }) {
       <p class="m-pad-name">{target.name}</p>
       <div class="m-pad-cross">
         <span />
-        {key('up', '▲', 'Haut')}
+        {key('up', <Icon name="chevronUp" />, 'Haut')}
         <span />
-        {key('left', '◀', 'Gauche')}
+        {key('left', <Icon name="back" />, 'Gauche')}
         {key('ok', 'OK', 'OK', 'm-pad-ok')}
-        {key('right', '▶', 'Droite')}
+        {key('right', <Icon name="back" />, 'Droite', 'm-flip')}
         <span />
-        {key('down', '▼', 'Bas')}
+        {key('down', <Icon name="chevronDown" />, 'Bas')}
         <span />
       </div>
       <div class="m-pad-row">
         {key('back', 'Retour', 'Retour')}
-        {key('playPause', '▶ ❚❚', 'Lecture ou pause')}
+        {key('playPause', <><Icon name="play" /><Icon name="pause" /></>, 'Lecture ou pause')}
       </div>
       <div class="m-pad-row">
         {key('chDown', 'CH −', 'Chaîne précédente')}
@@ -149,17 +150,17 @@ export function CastSheet({
               });
             }}
           >
-            <span>Chromecast</span>
+            <span class="m-with-icon"><Icon name="cast" />Chromecast</span>
           </button>
         )}
         {canAirplay() && (
           <button class="m-list-item" onClick={() => (showAirplay(), onClose())}>
-            <span>AirPlay</span>
+            <span class="m-with-icon"><Icon name="airplay" />AirPlay</span>
           </button>
         )}
         {canPip() && (
           <button class="m-list-item" onClick={() => (togglePip(), onClose())}>
-            <span>Image dans l'image</span>
+            <span class="m-with-icon"><Icon name="pip" />Image dans l'image</span>
           </button>
         )}
       </div>

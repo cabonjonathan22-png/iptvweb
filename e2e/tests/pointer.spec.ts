@@ -29,9 +29,9 @@ test('PC : molette, clic, boutons du lecteur', async ({ browser }) => {
   // Clic sur une chaîne : plein écran, avec les boutons à l'écran.
   await pc.locator('.col-channels .is-focused').click();
   await expect(pc.locator('.player-title')).toContainText('Chaîne 4');
-  await pc.getByRole('button', { name: '▲ Chaîne' }).click();
+  await pc.getByRole('button', { name: 'Chaîne suivante' }).click();
   await expect(pc.locator('.player-title')).toContainText('Chaîne 5');
-  await pc.getByRole('button', { name: '← Retour' }).click();
+  await pc.getByRole('button', { name: 'Retour', exact: true }).click();
   await expect(pc.locator('.player-ui')).toHaveCount(0);
 
   // L'indication « Retour » de l'en-tête est cliquable.
@@ -108,7 +108,7 @@ test('PC : molette, clic, boutons du lecteur', async ({ browser }) => {
   await expect.poll(() => list.locator('.vl-inner').getAttribute('style')).not.toBe(b2);
   await list.locator('.vl-row.is-focused').click();
   await hisense.mouse.move(300, 300);
-  await expect(hisense.getByRole('button', { name: '← Retour' })).toBeVisible();
-  await hisense.getByRole('button', { name: '← Retour' }).click();
+  await expect(hisense.getByRole('button', { name: 'Retour', exact: true })).toBeVisible();
+  await hisense.getByRole('button', { name: 'Retour', exact: true }).click();
   await expect(hisense.locator('.player-ui')).toHaveCount(0);
 });

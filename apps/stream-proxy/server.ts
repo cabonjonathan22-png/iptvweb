@@ -33,6 +33,8 @@ const DEFAULT_UA = 'VLC/3.0.21 LibVLC/3.0.21';
 const CHILD_TTL_SEC = 6 * 3600;
 const MAX_PLAYLIST_BYTES = 8 * 1024 * 1024;
 const CONNECT_TIMEOUT_MS = 15_000;
+const TRANSIENT_STATUS = new Set([403, 429, 458, 500, 502, 503, 504, 509, 520, 521, 522, 524]);
+const UPSTREAM_RETRY_MS = [300, 900];
 
 if (!SECRET || SECRET.length < 16) {
   console.error('STREAM_PROXY_SECRET manquant ou trop court (16 caractères minimum).');
@@ -129,28 +131,39 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse) {
   if (target.ref) headers.Referer = target.ref;
   if (req.headers.range) headers.Range = String(req.headers.range);
 
-  // Redirections suivies à la main : chaque saut est revérifié (SSRF).
+  // Redirections suivies à la main : chaque saut est revérifié (SSRF). Les refus passagers (limite de
+  // connexions juste après un zapping, panneau surchargé) sont réessayés ici : le lecteur ne les voit pas.
   let up: Response | null = null;
   let current = target.u;
-  try {
-    for (let hop = 0; hop < 5; hop++) {
-      if (hop > 0 && !(await upstreamAllowed(current))) {
+  for (let attempt = 0; ; attempt++) {
+    up = null;
+    current = target.u;
+    try {
+      for (let hop = 0; hop < 5; hop++) {
+        if (hop > 0 && !(await upstreamAllowed(current))) {
+          clearTimeout(timer);
+          return send(res, 403, 'redirect not allowed');
+        }
+        const r = await fetch(current, { headers, signal: ctrl.signal, redirect: 'manual' });
+        const loc = r.status >= 300 && r.status < 400 ? r.headers.get('location') : null;
+        if (!loc) {
+          up = r;
+          break;
+        }
+        r.body?.cancel().catch(() => {});
+        current = new URL(loc, current).toString();
+      }
+    } catch (e) {
+      if (ctrl.signal.aborted || attempt >= UPSTREAM_RETRY_MS.length) {
         clearTimeout(timer);
-        return send(res, 403, 'redirect not allowed');
+        if (ctrl.signal.aborted && res.destroyed) return;
+        return send(res, 502, 'upstream unreachable: ' + (e as Error).message);
       }
-      const r = await fetch(current, { headers, signal: ctrl.signal, redirect: 'manual' });
-      const loc = r.status >= 300 && r.status < 400 ? r.headers.get('location') : null;
-      if (!loc) {
-        up = r;
-        break;
-      }
-      r.body?.cancel().catch(() => {});
-      current = new URL(loc, current).toString();
     }
-  } catch (e) {
-    clearTimeout(timer);
-    if (ctrl.signal.aborted && res.destroyed) return;
-    return send(res, 502, 'upstream unreachable: ' + (e as Error).message);
+    if (up && (!TRANSIENT_STATUS.has(up.status) || attempt >= UPSTREAM_RETRY_MS.length)) break;
+    if (up) up.body?.cancel().catch(() => {});
+    if (attempt >= UPSTREAM_RETRY_MS.length) break;
+    await new Promise((r) => setTimeout(r, UPSTREAM_RETRY_MS[attempt]));
   }
   clearTimeout(timer);
   if (!up) return send(res, 502, 'too many redirects');

@@ -31,8 +31,8 @@ interface Props {
 /** Boutons PC : image dans l'image et Chromecast, s'ils sont disponibles. */
 export function castItems(source: () => Promise<PlayResponse>, title: string, startAt?: () => number): PointerItem[] {
   const out: PointerItem[] = [];
-  if (canPip()) out.push(["Image dans l'image", togglePip]);
-  if (canCast()) out.push(['Chromecast', () => castMedia(source, title, startAt && startAt()).catch(() => undefined)]);
+  if (canPip()) out.push(["Image dans l'image", togglePip, 'pip']);
+  if (canCast()) out.push(['Chromecast', () => castMedia(source, title, startAt && startAt()).catch(() => undefined), 'cast']);
   return out;
 }
 
@@ -138,11 +138,7 @@ export function FullPlayer({ channel, notice, favorite, onFavorite, onZap, onNum
     <FocusLayer name="player">
       <div class="player-ui" onClick={show} onMouseMove={show}>
         {loading && <div class="spinner spinner-corner" aria-label="Chargement" />}
-        {loading && p.reconnect && (
-          <div class="osd-reconnect">
-            Reconnexion ({p.reconnect.attempt}/{p.reconnect.max})…
-          </div>
-        )}
+        {loading && p.reconnect && p.reconnect.attempt >= 4 && <div class="osd-reconnect">Connexion en cours…</div>}
 
         {p.state === 'error' && p.error && (
           <div class="player-error">
@@ -166,14 +162,14 @@ export function FullPlayer({ channel, notice, favorite, onFavorite, onZap, onNum
         <PointerControls
           visible={overlay || loading || p.state === 'error'}
           items={[
-            ['← Retour', 'back'],
-            ['▼ Chaîne', 'chDown'],
-            ['▲ Chaîne', 'chUp'],
-            ['❚❚ / ▶', 'playPause'],
-            [favorite ? '♥ Favori' : '♡ Favori', 'red'],
-            ['Dernière', 'green'],
-            ['Pistes', 'yellow'],
-            ['Plein écran', 'fullscreen'],
+            ['Retour', 'back', 'back'],
+            ['Chaîne précédente', 'chDown', 'prev'],
+            [p.state === 'paused' ? 'Lecture' : 'Pause', 'playPause', p.state === 'paused' ? 'play' : 'pause'],
+            ['Chaîne suivante', 'chUp', 'next'],
+            [favorite ? 'Retirer des favoris' : 'Ajouter aux favoris', 'red', favorite ? 'heartOn' : 'heart'],
+            ['Dernière chaîne', 'green', 'last'],
+            ['Pistes', 'yellow', 'tracks'],
+            ['Plein écran', 'fullscreen', 'fullscreen'],
             ...castItems(() => api.play('live', channel.id, 'hls'), channel.name),
           ]}
         />

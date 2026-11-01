@@ -43,8 +43,20 @@ export function setUnauthorizedHandler(fn: () => void) {
   onUnauthorized = fn;
 }
 
+const TRANSIENT = [502, 503, 504];
+
+/** Une lecture qui échoue sur un incident passager (réseau, démarrage du serveur) est retentée une fois. */
+const resilient: Transport = (req) => {
+  if (req.method !== 'GET') return xhrTransport(req);
+  const again = () => new Promise<void>((r) => window.setTimeout(r, 600)).then(() => xhrTransport(req));
+  return xhrTransport(req).then(
+    (res) => (TRANSIENT.indexOf(res.status) >= 0 ? again() : res),
+    () => again(),
+  );
+};
+
 const guarded: Transport = (req) =>
-  xhrTransport(req).then((res) => {
+  resilient(req).then((res) => {
     if (res.status === 401 && storage.getToken() && onUnauthorized) onUnauthorized();
     return res;
   });

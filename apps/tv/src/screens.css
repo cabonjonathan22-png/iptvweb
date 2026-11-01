@@ -739,9 +739,10 @@
 }
 .pc-btn {
   margin: 0 8px;
-  padding: 20px 30px;
+  padding: 22px;
   border: 0;
-  border-radius: 16px;
+  border-radius: 48px;
+  line-height: 0;
   background: rgba(11, 11, 16, 0.88);
   color: var(--fg);
   font: inherit;

@@ -22,7 +22,7 @@ export async function pair(tv: Page, web: Page, name: string, email = 'e2e@examp
   await web.goto(WEB + '/link?code=' + code);
   await web.getByLabel('Nom de la TV').fill(name);
   await web.getByRole('button', { name: 'Lier cette TV' }).click();
-  await expect(web.getByRole('status')).toContainText(name);
+  await expect(web.getByRole('status')).toContainText(name, { timeout: 30_000 });
   // La TV détecte la liaison par polling (3 s) et ouvre l'accueil.
   await expect(tv.locator('.crumb')).toHaveText('Accueil', { timeout: 15_000 });
   await expect(tv.locator('.eyebrow')).toContainText(name);

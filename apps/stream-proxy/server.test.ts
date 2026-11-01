@@ -13,6 +13,7 @@ let origin: http.Server;
 let originUrl = '';
 let proc: ChildProcess;
 const seen: { ua?: string; ref?: string; range?: string }[] = [];
+let flaky = 0;
 
 beforeAll(async () => {
   const media = Buffer.alloc(1000, 7);
@@ -54,6 +55,11 @@ beforeAll(async () => {
         ...(m ? { 'Content-Range': `bytes ${a}-${b}/${file.length}` } : {}),
       });
       return res.end(file.subarray(a, b + 1));
+    }
+    if (req.url === '/flaky.m3u8') {
+      if (++flaky < 3) return void res.writeHead(403).end();
+      res.writeHead(200, { 'Content-Type': 'application/vnd.apple.mpegurl' });
+      return res.end('#EXTM3U\n#EXTINF:4,\nseg1.ts\n');
     }
     if (req.url === '/to-metadata') {
       res.writeHead(302, { Location: 'http://169.254.169.254/latest' });
@@ -126,6 +132,14 @@ describe('stream proxy', () => {
     const pre = await fetch(PROXY + '/s/x/y', { method: 'OPTIONS' });
     expect(pre.status).toBe(204);
     expect(pre.headers.get('access-control-allow-headers')).toContain('Range');
+  });
+});
+
+describe('refus passagers', () => {
+  it("réessaie un 403 de l'origine avant de répondre", async () => {
+    const res = await fetch(tok('/flaky.m3u8'));
+    expect(res.status).toBe(200);
+    expect(flaky).toBe(3);
   });
 });
 

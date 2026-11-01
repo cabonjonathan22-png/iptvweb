@@ -183,7 +183,7 @@ export function VodPlayer({ item, next, onPlayNext, onExit }: Props) {
     <FocusLayer name="vod-player">
       <div class="player-ui" onClick={show} onMouseMove={show}>
         {loading && <div class="spinner spinner-corner" aria-label="Chargement" />}
-        {loading && p.reconnect && <div class="osd-reconnect">Reconnexion ({p.reconnect.attempt}/{p.reconnect.max})…</div>}
+        {loading && p.reconnect && p.reconnect.attempt >= 4 && <div class="osd-reconnect">Connexion en cours…</div>}
 
         {error && (
           <div class="player-error">
@@ -216,12 +216,12 @@ export function VodPlayer({ item, next, onPlayNext, onExit }: Props) {
         <PointerControls
           visible={overlay || loading || p.state === 'paused' || !!error}
           items={[
-            ['← Retour', 'back'],
-            ['−10 s', 'left'],
-            ['❚❚ / ▶', 'playPause'],
-            ['+10 s', 'right'],
-            ['Pistes', 'yellow'],
-            ['Plein écran', 'fullscreen'],
+            ['Retour', 'back', 'back'],
+            ['Reculer de 10 secondes', 'left', 'rewind', '10'],
+            [p.state === 'paused' ? 'Lecture' : 'Pause', 'playPause', p.state === 'paused' ? 'play' : 'pause'],
+            ['Avancer de 10 secondes', 'right', 'forward', '10'],
+            ['Pistes', 'yellow', 'tracks'],
+            ['Plein écran', 'fullscreen', 'fullscreen'],
             ...castItems(() => source('hls'), item.title, () => player.position()),
           ]}
         />

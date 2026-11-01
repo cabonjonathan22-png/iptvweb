@@ -62,6 +62,14 @@ test('direct : listes, plein écran, zapping, numéro, erreur, retour', async ({
   await tv.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 404 } as KeyboardEventInit)));
   await expect(tv.locator('.player-title')).toContainText('Chaîne 2');
 
+  // Refus passagers du fournisseur (chaîne 5) : aucune erreur affichée, la lecture démarre seule.
+  await tv.keyboard.press('5');
+  await expect(tv.locator('.player-title')).toContainText('Chaîne 5', { timeout: 10_000 });
+  await expect
+    .poll(() => tv.evaluate(() => document.querySelector('video')!.currentTime), { timeout: 40_000, intervals: [500] })
+    .toBeGreaterThan(0);
+  await expect(tv.locator('.player-error')).toHaveCount(0);
+
   // Chaîne hors ligne (n°1) : reconnexions visibles puis écran d'erreur avec « Réessayer ».
   await tv.keyboard.press('1');
   await expect(tv.locator('.player-title')).toContainText('Chaîne 1', { timeout: 10_000 });

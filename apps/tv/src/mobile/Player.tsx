@@ -6,7 +6,7 @@ import { epgFor, onEpgChange, progressOf } from '../lib/epg-store';
 import { clock, hhmm } from '../lib/format';
 import { saveLocal } from '../lib/local-progress';
 import { PagedSource } from '../lib/paged-source';
-import { prefs } from '../lib/prefs';
+import { liveSource } from '../lib/live-source';
 import { player } from '../player/engine';
 import { usePlayer } from '../player/usePlayer';
 import { goBack, pushBack } from './nav';
@@ -157,12 +157,8 @@ export function LivePlayer({ channel, source: given, index }: { channel: TvChann
   const load = (ch: TvChannel) => {
     setNotice(null);
     api.saveProgress('live', ch.id, 0, null).catch(() => undefined);
-    const mode = prefs.liveMode;
-    // Sans MSE, l'iPhone ne sait lire que le HLS.
-    const asked = mode === 'auto' ? (isIOS ? 'hls' : undefined) : mode;
-    api
-      .play('live', ch.id, asked)
-      .then((r) => player.load({ url: r.url, type: r.type, live: true }))
+    liveSource(ch.id)
+      .then((src) => player.load(src))
       .catch((e: ApiError) => {
         if (e.code === 'locked') setPin(true);
         else if (e.status !== 401) setNotice(e.message || 'Lecture impossible.');
@@ -230,7 +226,7 @@ export function LivePlayer({ channel, source: given, index }: { channel: TvChann
           </div>
         )}
         {notice && <div class="m-stage-msg"><p>{notice}</p></div>}
-        {loading && p.reconnect && <div class="m-stage-note">Reconnexion ({p.reconnect.attempt}/{p.reconnect.max})…</div>}
+        {loading && p.reconnect && p.reconnect.attempt >= 4 && <div class="m-stage-note">Connexion en cours…</div>}
         <div class="m-controls">
           <div class="m-ctl-top" onClick={(e) => e.stopPropagation()}>
             <button class="m-ctl" aria-label="Retour" onClick={goBack}>
@@ -238,39 +234,39 @@ export function LivePlayer({ channel, source: given, index }: { channel: TvChann
             </button>
             <span class="m-ctl-title">{current.name}</span>
             <button class="m-ctl" aria-label={favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'} aria-pressed={favorite} onClick={toggleFav}>
-              {favorite ? '♥' : '♡'}
+              <Icon name={favorite ? 'heartOn' : 'heart'} />
             </button>
-            <button class="m-ctl m-ctl-text" onClick={() => setTracks(true)}>
-              Pistes
+            <button class="m-ctl" aria-label="Pistes" title="Pistes" onClick={() => setTracks(true)}>
+              <Icon name="tracks" />
             </button>
-            <button class="m-ctl m-ctl-text" onClick={() => setCast(true)}>
-              Diffuser
+            <button class="m-ctl" aria-label="Diffuser" title="Diffuser" onClick={() => setCast(true)}>
+              <Icon name="cast" />
             </button>
           </div>
           <div class="m-ctl-mid" onClick={(e) => e.stopPropagation()}>
             {idx >= 0 && (
               <button class="m-ctl m-ctl-big" aria-label="Chaîne précédente" onClick={() => zap(-1)}>
-                ⏮
+                <Icon name="prev" size={30} />
               </button>
             )}
             <button class="m-ctl m-ctl-big m-ctl-main" aria-label={p.state === 'paused' ? 'Lecture' : 'Pause'} onClick={() => (p.toggle(), overlay.show())}>
-              {p.state === 'paused' ? '▶' : '❚❚'}
+              <Icon name={p.state === 'paused' ? 'play' : 'pause'} size={34} />
             </button>
             {idx >= 0 && (
               <button class="m-ctl m-ctl-big" aria-label="Chaîne suivante" onClick={() => zap(1)}>
-                ⏭
+                <Icon name="next" size={30} />
               </button>
             )}
           </div>
           <div class="m-ctl-bottom" onClick={(e) => e.stopPropagation()}>
             <span class="m-live-dot">EN DIRECT</span>
             {current.catchup && (
-              <button class="m-ctl m-ctl-text" onClick={() => setReplayList(true)}>
-                Replay
-              </button>
+              <button class="m-ctl" aria-label="Replay" title="Replay" onClick={() => setReplayList(true)}>
+              <Icon name="replay" />
+            </button>
             )}
-            <button class="m-ctl m-ctl-text" onClick={toggleFull}>
-              Plein écran
+            <button class="m-ctl" aria-label="Plein écran" title="Plein écran" onClick={toggleFull}>
+              <Icon name="fullscreen" />
             </button>
           </div>
         </div>
@@ -527,22 +523,22 @@ export function VodPlayer({ playback }: { playback: VodPlayback }) {
               {item.title}
               {item.subtitle && <small>{item.subtitle}</small>}
             </span>
-            <button class="m-ctl m-ctl-text" onClick={() => setTracks(true)}>
-              Pistes
+            <button class="m-ctl" aria-label="Pistes" title="Pistes" onClick={() => setTracks(true)}>
+              <Icon name="tracks" />
             </button>
-            <button class="m-ctl m-ctl-text" onClick={() => setCast(true)}>
-              Diffuser
+            <button class="m-ctl" aria-label="Diffuser" title="Diffuser" onClick={() => setCast(true)}>
+              <Icon name="cast" />
             </button>
           </div>
           <div class="m-ctl-mid" onClick={(e) => e.stopPropagation()}>
             <button class="m-ctl m-ctl-big" aria-label="Reculer de 10 secondes" onClick={() => (player.seekBy(-10), overlay.show())}>
-              −10
+              <Icon name="rewind" size={34} label="10" />
             </button>
             <button class="m-ctl m-ctl-big m-ctl-main" aria-label={p.state === 'paused' ? 'Lecture' : 'Pause'} onClick={() => (p.toggle(), overlay.show())}>
-              {p.state === 'paused' ? '▶' : '❚❚'}
+              <Icon name={p.state === 'paused' ? 'play' : 'pause'} size={34} />
             </button>
             <button class="m-ctl m-ctl-big" aria-label="Avancer de 10 secondes" onClick={() => (player.seekBy(10), overlay.show())}>
-              +10
+              <Icon name="forward" size={34} label="10" />
             </button>
           </div>
           <div class="m-ctl-bottom" onClick={(e) => e.stopPropagation()}>
@@ -565,8 +561,8 @@ export function VodPlayer({ playback }: { playback: VodPlayback }) {
               }}
             />
             <span class="m-time">{dur ? clock(dur) : '--:--'}</span>
-            <button class="m-ctl m-ctl-text" onClick={toggleFull}>
-              Plein écran
+            <button class="m-ctl" aria-label="Plein écran" title="Plein écran" onClick={toggleFull}>
+              <Icon name="fullscreen" />
             </button>
           </div>
         </div>

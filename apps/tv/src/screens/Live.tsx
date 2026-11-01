@@ -2,6 +2,7 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'preact/hooks';
 import type { TvCategory, TvChannel } from '@iptv/shared';
 import { useApp } from '../app-context';
 import { api, ApiError } from '../lib/api';
+import { liveSource } from '../lib/live-source';
 import { prefs } from '../lib/prefs';
 import { needsPin } from '../lib/session';
 import { PagedSource } from '../lib/paged-source';
@@ -77,6 +78,7 @@ export function LiveScreen({ params }: { params?: Record<string, unknown> }) {
       })
       .catch(() => undefined);
     const off = onEpgChange(() => rerender(undefined));
+    player.warm();
     if (direct) openFull(direct);
     return () => {
       off();
@@ -146,10 +148,8 @@ export function LiveScreen({ params }: { params?: Record<string, unknown> }) {
     if (playing && playing.id === ch.id && player.src) return;
     if (playing) previous.current = playing;
     setPlaying(ch);
-    const mode = prefs.liveMode;
-    api
-      .play('live', ch.id, mode === 'auto' ? undefined : mode)
-      .then((r) => player.load({ url: r.url, type: r.type, live: true }))
+    liveSource(ch.id)
+      .then((src) => player.load(src))
       .catch((e: ApiError) => {
         if (e.code === 'locked') flash('Chaîne protégée : saisissez le code parental depuis sa catégorie.');
         else if (e.status !== 401) flash(e.message || 'Lecture impossible.');
