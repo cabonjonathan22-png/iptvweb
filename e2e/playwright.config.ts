@@ -37,6 +37,8 @@ export default defineConfig({
         ALLOW_PRIVATE_SOURCES: '1',
         STREAM_PROXY_URL: proxy.url,
         STREAM_PROXY_SECRET: proxy.secret,
+        // E2E_DEAD_RELAY=1 : relais principal injoignable, tout doit passer par le secours.
+        ...(process.env.E2E_DEAD_RELAY ? { STREAM_WORKER_URL: 'http://localhost:18999', STREAM_WORKER_SECRET: 'dead-relay-secret-0123456789' } : {}),
         ...(process.env.MOCK_MKV ? { STREAM_PROXY_REMUX: '1' } : {}),
       },
     },

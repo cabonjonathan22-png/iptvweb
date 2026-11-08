@@ -42,6 +42,17 @@ function proxyConfig() {
 }
 
 /**
+ * Relais principal : Cloudflare Workers (trafic gratuit) s'il est configuré, sinon le proxy.
+ * `backup` force le proxy (Render) : demandé par le lecteur quand le relais principal échoue.
+ */
+export type Relay = 'main' | 'backup';
+function relayConfig(relay: Relay) {
+  const url = process.env.STREAM_WORKER_URL;
+  const secret = process.env.STREAM_WORKER_SECRET;
+  return relay === 'main' && url && secret ? { url, secret } : proxyConfig();
+}
+
+/**
  * Réveille le proxy s'il dort (hébergement gratuit : veille après 15 min).
  * Appelé à l'ouverture de la TV pour que la première chaîne démarre plus vite.
  */
@@ -60,6 +71,7 @@ export async function resolvePlayback(
   mode?: 'hls' | 'ts',
   /** false : refuse les contenus des catégories verrouillées (contrôle parental). */
   lockedOk = true,
+  relay: Relay = 'main',
 ): Promise<PlayResponse | PlaybackError> {
   const db = await getDb();
   const creds = playlist.type === 'xtream' && playlist.credentialsEnc ? decryptJson<XtreamCreds>(playlist.credentialsEnc) : null;
@@ -96,7 +108,7 @@ export async function resolvePlayback(
     upstream = creds ? xtreamEpisodeUrl(creds, e.externalId, e.containerExt || 'mp4') : e.streamUrl;
   }
   if (!upstream) return 'no_source';
-  return toPlayResponse(upstream, live, !!creds, ua, ref);
+  return toPlayResponse(upstream, live, !!creds, ua, ref, relay);
 }
 
 /** Replay le plus long accepté : au-delà, la demande n'a pas de sens pour un programme. */
@@ -111,6 +123,7 @@ export async function resolveCatchup(
   stop: number,
   mode: 'hls' | 'ts' | undefined,
   lockedOk: boolean,
+  relay: Relay = 'main',
 ): Promise<PlayResponse | CatchupError> {
   const now = Date.now();
   if (start >= now || stop <= start || stop - start > MAX_CATCHUP_MS) return 'bad_window';
@@ -132,21 +145,23 @@ export async function resolveCatchup(
       ? m3uCatchupUrl(c.streamUrl, c.catchup, c.catchupSource, w, now)
       : null;
   if (!upstream) return 'no_source';
-  const res = toPlayResponse(upstream, true, !!creds, c.httpUserAgent ?? undefined, c.httpReferrer ?? undefined);
+  const res = toPlayResponse(upstream, true, !!creds, c.httpUserAgent ?? undefined, c.httpReferrer ?? undefined, relay);
   return { ...res, live: false };
 }
 
 /** Conteneurs qu'aucun navigateur n'ouvre de façon fiable : le proxy les convertit à la volée. */
 const REMUX_EXT = /\.(mkv|avi|wmv|flv|mpe?g|vob|divx|xvid|m2ts)$/i;
 
-function toPlayResponse(upstream: string, live: boolean, hasCreds: boolean, ua?: string, ref?: string): PlayResponse {
+function toPlayResponse(upstream: string, live: boolean, hasCreds: boolean, ua?: string, ref?: string, relay: Relay = 'main'): PlayResponse {
   const type = streamTypeOf(upstream, live);
-  const proxy = proxyConfig();
-  if (proxy && !live && process.env.STREAM_PROXY_REMUX === '1' && REMUX_EXT.test(upstream.split('?')[0]!)) {
+  // Conversion MKV : seul le proxy a ffmpeg.
+  const remuxProxy = proxyConfig();
+  if (remuxProxy && !live && process.env.STREAM_PROXY_REMUX === '1' && REMUX_EXT.test(upstream.split('?')[0]!)) {
     const exp = Math.floor(Date.now() / 1000) + TOKEN_TTL_SEC;
-    const base = proxy.url.replace(/\/$/, '') + '/x/' + sealStream({ u: upstream, ua, ref, exp }, proxy.secret);
+    const base = remuxProxy.url.replace(/\/$/, '') + '/x/' + sealStream({ u: upstream, ua, ref, exp }, remuxProxy.secret);
     return { url: base + '/0/0/index.m3u8', type: 'hls', live: false, proxied: true, remux: { base } };
   }
+  const proxy = relayConfig(relay);
   // Direct seulement si l'origine est déjà en HTTPS sans en-têtes spéciaux et sans identifiants à cacher.
   const direct = !proxy || (upstream.startsWith('https://') && !ua && !ref && !hasCreds);
   if (direct) {

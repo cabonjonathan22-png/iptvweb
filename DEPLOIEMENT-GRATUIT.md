@@ -45,6 +45,28 @@ Le bouton « Continuer avec Google » n'apparaît qu'une fois ces deux variables
 
 Un compte déjà créé par lien e-mail avec la même adresse retrouve ses données.
 
+## Relais vidéo gratuit : Cloudflare Workers
+
+Render ne laisse passer que 5 Go par mois (2 à 3 h de HD), puis facture. Le relais `apps/stream-worker` fait le même travail sur Cloudflare, où le trafic n'est pas facturé (offre gratuite : 100 000 requêtes par jour, soit environ 40 h de direct). Render ne sert plus que de secours automatique et pour convertir les MKV.
+
+1. Crée un compte gratuit sur <https://dash.cloudflare.com/sign-up>, puis, à la racine du dépôt :
+   ```bash
+   cd apps/stream-worker
+   pnpm dlx wrangler@4 login
+   ```
+2. Déploiement et secret partagé (généré ici, jamais affiché) :
+   ```bash
+   pnpm dlx wrangler@4 deploy
+   node -e "process.stdout.write(require('crypto').randomBytes(32).toString('base64url'))" > .secret
+   pnpm dlx wrangler@4 secret put STREAM_PROXY_SECRET < .secret
+   cd ../.. && pnpm dlx vercel@59.23.2 link --yes --project oria-web --scope voyaj1
+   pnpm dlx vercel@59.23.2 env add STREAM_WORKER_SECRET production --scope voyaj1 < apps/stream-worker/.secret
+   rm apps/stream-worker/.secret
+   ```
+3. Ajoute `STREAM_WORKER_URL` (l'adresse `https://oria-stream.<compte>.workers.dev` affichée par le déploiement) au projet `oria-web`, puis redéploie-le.
+
+Si le relais Cloudflare échoue (limite du jour atteinte, port refusé…), le lecteur bascule seul sur Render.
+
 ## Limites de cette installation
 
 - **Render** se met en veille après 15 min : la première chaîne peut mettre 30 à 60 s à démarrer. Le trafic gratuit est limité ; au-delà, le service est suspendu jusqu'au mois suivant, sans frais.

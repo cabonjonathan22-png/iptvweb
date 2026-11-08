@@ -34,7 +34,9 @@ export function startProxyWake() {
   }
   // Découverte ou changement d'adresse : à la première lecture passée par le proxy.
   player.subscribe(() => {
+    // Seul le proxy de secours (Render) se met en veille ; le relais Cloudflare ne dort pas.
     const m = player.src && /^(https?:\/\/[^/]+)\/(?:s|x)\//.exec(player.src.url);
+    if (m && /workers\.dev$/.test(m[1]!)) return;
     if (m && m[1] !== origin) {
       origin = m[1]!;
       storage.setPref(ORIGIN, origin);

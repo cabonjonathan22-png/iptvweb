@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { api, ApiError } from '../lib/api';
 import { clock } from '../lib/format';
+import { withFallback } from '../lib/live-source';
 import { saveLocal } from '../lib/local-progress';
 import { FocusLayer, useKeyHandler } from '../nav/hooks';
 import { Button } from '../components/Button';
@@ -44,8 +45,8 @@ export function VodPlayer({ item, next, onPlayNext, onExit }: Props) {
   const [seekTarget, setSeekTarget] = useState<number | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const source = (mode?: 'hls') =>
-    item.kind === 'catchup' ? api.catchup(item.id, item.window!.start, item.window!.stop, mode) : api.play(item.kind, item.id);
+  const source = (mode?: 'hls', relay?: 'backup') =>
+    item.kind === 'catchup' ? api.catchup(item.id, item.window!.start, item.window!.stop, mode, relay) : api.play(item.kind, item.id, mode, relay);
   const [, setTick] = useState(0);
   const hideTimer = useRef(0);
   const seek = useRef({ timer: 0, presses: 0, last: 0 });
@@ -57,7 +58,14 @@ export function VodPlayer({ item, next, onPlayNext, onExit }: Props) {
     setCountdown(null);
     player.setView({ mode: 'full' });
     source()
-      .then((r) => player.load({ url: r.url, type: r.type, live: false, startAt: item.startAt || undefined, remux: r.remux }))
+      .then((r) => player.load({
+          url: r.url,
+          type: r.type,
+          live: false,
+          startAt: item.startAt || undefined,
+          remux: r.remux,
+          ...withFallback((m, relay) => source(m === 'hls' ? 'hls' : undefined, relay), undefined, false),
+        }))
       .catch((e: ApiError) => setLoadError(e.message || 'Lecture impossible.'));
     show();
     // Horloge de la barre de progression.

@@ -25,7 +25,7 @@ export interface Source {
   startAt?: number;
   /** Fichier converti à la volée par le proxy (MKV…). */
   remux?: { base: string };
-  /** Direct : l'autre format, à essayer si celui-ci échoue. */
+  /** Autre source à essayer si celle-ci échoue (autre format, relais de secours). */
   alternate?: () => Promise<{ url: string; type: StreamType }>;
   onPlaying?: (type: StreamType) => void;
 }
@@ -543,7 +543,8 @@ class Engine {
     const code = v.error.code;
     if (code === 4) {
       // MEDIA_ERR_SRC_NOT_SUPPORTED : souvent une origine injoignable, sinon un format non lu.
-      if (this.src.live) this.scheduleRetry('network');
+      // Film : un relais injoignable donne la même erreur qu'un format illisible ; une autre source est essayée.
+      if (this.src.live || (this.src.alternate && this.retries < 3)) this.scheduleRetry('network');
       else this.fail('unsupported');
     } else if (code === 2) this.scheduleRetry('network');
     else this.fail('media');
@@ -564,11 +565,11 @@ class Engine {
     this.retryTimer = window.setTimeout(() => this.retryAttempt(), delay);
   }
 
-  /** Une fois sur deux, le direct essaie l'autre format (certains fournisseurs n'en servent qu'un de façon fiable). */
+  /** Une fois sur deux, on essaie une autre source : autre format, puis relais de secours. */
   private retryAttempt() {
     const src = this.src;
     if (!src) return;
-    if (!src.live || !src.alternate || this.retries % 2 === 1) return void this.start();
+    if (!src.alternate || this.retries % 2 === 1) return void this.start();
     const session = this.session;
     src
       .alternate()

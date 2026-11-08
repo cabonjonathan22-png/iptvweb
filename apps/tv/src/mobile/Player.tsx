@@ -6,7 +6,7 @@ import { epgFor, onEpgChange, progressOf } from '../lib/epg-store';
 import { clock, hhmm } from '../lib/format';
 import { saveLocal } from '../lib/local-progress';
 import { PagedSource } from '../lib/paged-source';
-import { liveSource } from '../lib/live-source';
+import { liveSource, withFallback } from '../lib/live-source';
 import { player } from '../player/engine';
 import { usePlayer } from '../player/usePlayer';
 import { goBack, pushBack } from './nav';
@@ -408,8 +408,8 @@ export function VodPlayer({ playback }: { playback: VodPlayback }) {
   const [, tick] = useReducer((n: number) => n + 1, 0);
   const lastTap = useRef<{ at: number; side: number }>({ at: 0, side: 0 });
   const next = item.queue && item.queue[0];
-  const source = (mode?: 'hls') =>
-    item.kind === 'catchup' ? api.catchup(item.id, item.window!.start, item.window!.stop, mode) : api.play(item.kind, item.id);
+  const source = (mode?: 'hls', relay?: 'backup') =>
+    item.kind === 'catchup' ? api.catchup(item.id, item.window!.start, item.window!.stop, mode, relay) : api.play(item.kind, item.id, mode, relay);
   const remoteCommand = (): RemoteCommand =>
     item.kind === 'vod'
       ? { type: 'vod', id: item.id, startAt: player.position() }
@@ -419,7 +419,14 @@ export function VodPlayer({ playback }: { playback: VodPlayback }) {
     setLoadError(null);
     setCountdown(null);
     source(isIOS ? 'hls' : undefined)
-      .then((r) => player.load({ url: r.url, type: r.type, live: false, startAt: item.startAt || undefined, remux: r.remux }))
+      .then((r) => player.load({
+          url: r.url,
+          type: r.type,
+          live: false,
+          startAt: item.startAt || undefined,
+          remux: r.remux,
+          ...withFallback((m, relay) => source(m === 'hls' ? 'hls' : undefined, relay), undefined, false),
+        }))
       .catch((e: ApiError) => setLoadError(e.message || 'Lecture impossible.'));
     overlay.show();
     const t = window.setInterval(() => tick(undefined), 1000);

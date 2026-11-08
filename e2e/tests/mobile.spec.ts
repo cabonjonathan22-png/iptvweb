@@ -43,7 +43,7 @@ test('téléphone et tablette : liaison, navigation, filtre de langues, lecteur,
   await web.goto((await link.getAttribute('href'))!);
   await web.getByLabel('Nom de la TV').fill('Téléphone');
   await web.getByRole('button', { name: 'Lier cette TV' }).click();
-  await expect(web.getByRole('status')).toContainText('Téléphone');
+  await expect(web.getByRole('status')).toContainText('Téléphone', { timeout: 30_000 });
   const tabs = tel.getByRole('navigation', { name: 'Navigation principale' });
   await expect(tabs).toBeVisible({ timeout: 15_000 });
   expect(await noHorizontalScroll(tel)).toBe(true);

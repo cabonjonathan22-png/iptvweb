@@ -59,7 +59,8 @@ export function ErrorState({ error, onRetry }: { error: ApiError; onRetry?: () =
 
 /** Panneau remontant du bas ; le retour système le ferme. */
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ComponentChildren }) {
-  useEffect(() => pushBack(onClose), []);
+  // Avant l'affichage : un retour immédiat ferme bien le panneau, pas l'écran.
+  useLayoutEffect(() => pushBack(onClose), []);
   return (
     <div class="m-sheet-wrap" onClick={onClose}>
       <div class="m-sheet" role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>

@@ -87,11 +87,15 @@ export function createTvApi(transport: Transport, getToken: () => string | null,
         '/api/tv/live/channels?category=' + category + '&offset=' + offset + '&limit=' + limit,
       ),
     liveChannelByNum: (num: number) => call<{ channel: TvChannel | null }>('GET', '/api/tv/live/channel?num=' + num),
-    play: (kind: PlayKind, id: number, mode?: 'hls' | 'ts') =>
-      call<PlayResponse>('GET', '/api/tv/play?kind=' + kind + '&id=' + id + (mode ? '&mode=' + mode : '')),
+    /** `relay` 'backup' : passe par le proxy de secours (relais principal en échec). */
+    play: (kind: PlayKind, id: number, mode?: 'hls' | 'ts', relay?: 'backup') =>
+      call<PlayResponse>('GET', '/api/tv/play?kind=' + kind + '&id=' + id + (mode ? '&mode=' + mode : '') + (relay ? '&relay=' + relay : '')),
     /** Replay d'un programme passé (millisecondes). */
-    catchup: (channelId: number, start: number, stop: number, mode?: 'hls' | 'ts') =>
-      call<PlayResponse>('GET', '/api/tv/play?kind=catchup&id=' + channelId + '&start=' + start + '&stop=' + stop + (mode ? '&mode=' + mode : '')),
+    catchup: (channelId: number, start: number, stop: number, mode?: 'hls' | 'ts', relay?: 'backup') =>
+      call<PlayResponse>(
+        'GET',
+        '/api/tv/play?kind=catchup&id=' + channelId + '&start=' + start + '&stop=' + stop + (mode ? '&mode=' + mode : '') + (relay ? '&relay=' + relay : ''),
+      ),
     epgChannel: (channelId: number, from: number, to: number) =>
       call<EpgProgram[]>('GET', '/api/tv/epg/channel?id=' + channelId + '&from=' + from + '&to=' + to),
     handoff: () => call<Handoff | null>('GET', '/api/tv/handoff'),

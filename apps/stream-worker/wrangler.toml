@@ -1,0 +1,8 @@
+# Relais de flux sur Cloudflare Workers (offre gratuite : trafic non facturé,
+# 100 000 requêtes par jour). Déploiement : voir DEPLOIEMENT-GRATUIT.md.
+name = "oria-stream"
+main = "src/index.ts"
+compatibility_date = "2025-09-01"
+# Les serveurs IPTV utilisent souvent un port non standard (8080, 25461…).
+compatibility_flags = ["allow_custom_ports"]
+workers_dev = true
