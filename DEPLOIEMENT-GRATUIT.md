@@ -28,6 +28,22 @@ Pour redéployer : `node scripts/deploy.mjs web`, `tv` ou `all`.
 - **MKV** : conversion à la volée par le proxy (`ffmpeg` dans l'image Docker), activée par `STREAM_PROXY_REMUX=1` sur `oria-web`. Si le proxy change, redéployer d'abord Render à la main (**Manual Deploy → Deploy latest commit**) : il ne se met pas à jour tout seul.
 - **Connexion Google** : projet Google Cloud `oria-83ea1`, client OAuth « Oria Web ».
 
+## Liens de connexion pour tout le monde (Gmail, gratuit)
+
+Resend sans domaine vérifié n'envoie qu'au propriétaire du compte. Sans domaine, on passe par un compte Gmail (500 envois par jour, vers n'importe quelle adresse) :
+
+1. Un compte Gmail dédié de préférence (ex. `oria.connexion@gmail.com`), avec la **validation en deux étapes** activée.
+2. <https://myaccount.google.com/apppasswords> → nom « Oria » → **Créer** : copie les 16 lettres.
+3. À la racine du dépôt :
+   ```bash
+   pnpm dlx vercel@59.23.2 link --yes --project oria-web --scope voyaj1
+   pnpm dlx vercel@59.23.2 env add SMTP_USER production --scope voyaj1      # l'adresse Gmail
+   pnpm dlx vercel@59.23.2 env add SMTP_PASSWORD production --scope voyaj1  # les 16 lettres
+   pnpm dlx vercel@59.23.2 deploy --prod --yes --scope voyaj1
+   ```
+
+Dès que ces deux variables existent, elles remplacent Resend.
+
 ## Connexion avec Google (gratuit, 5 min)
 
 Le bouton « Continuer avec Google » n'apparaît qu'une fois ces deux variables définies.

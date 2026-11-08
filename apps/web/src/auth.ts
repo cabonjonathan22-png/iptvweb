@@ -10,10 +10,12 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { redirect } from 'next/navigation';
 import { BRAND } from '@iptv/shared';
 import { getDb, schema } from '@/lib/db';
+import { sendLoginMail, smtpEnabled } from '@/lib/login-mail';
 
+// Envoi du lien : SMTP (Gmail…) s'il est configuré, sinon Resend, sinon la console (dev).
 // RESEND_API_KEY : variable injectée par l'intégration Resend de Vercel.
 const resendKey = process.env.AUTH_RESEND_KEY || process.env.RESEND_API_KEY;
-const devMailer = !resendKey;
+const devMailer = !resendKey && !smtpEnabled;
 
 export const { handlers, auth, signIn, signOut } = NextAuth(async (): Promise<NextAuthConfig> => {
   const db = await getDb();
@@ -25,6 +27,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async (): Promise<Ne
       ...(devMailer && {
         async sendVerificationRequest({ identifier, url }) {
           console.log(`\n[auth] Lien de connexion pour ${identifier} :\n${url}\n`);
+        },
+      }),
+      ...(smtpEnabled && {
+        async sendVerificationRequest({ identifier, url }) {
+          await sendLoginMail(identifier, url);
         },
       }),
     }),
