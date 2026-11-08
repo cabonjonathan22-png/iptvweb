@@ -43,7 +43,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async (): Promise<Ne
     }),
     providers,
     session: { strategy: 'database' },
-    pages: { signIn: '/login', verifyRequest: '/login?sent=1' },
+    // Les erreurs reviennent sur /login (message lisible) au lieu de la page générique d'Auth.js.
+    pages: { signIn: '/login', verifyRequest: '/login?sent=1', error: '/login' },
     trustHost: true,
     callbacks: {
       session({ session, user }) {

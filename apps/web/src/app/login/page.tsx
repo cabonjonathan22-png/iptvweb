@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { AuthError } from 'next-auth';
 import { currentUser, googleEnabled, signIn } from '@/auth';
 import { Logo } from '@/components/Logo';
 import { Disclaimer } from '@/components/Disclaimer';
@@ -22,7 +23,13 @@ export default async function LoginPage({
 
   async function emailSignIn(formData: FormData) {
     'use server';
-    await signIn('resend', { email: String(formData.get('email') || ''), redirectTo: callbackUrl });
+    try {
+      await signIn('resend', { email: String(formData.get('email') || ''), redirectTo: callbackUrl });
+    } catch (e) {
+      // La redirection de Next passe aussi par une exception : on la laisse remonter.
+      if (!(e instanceof AuthError)) throw e;
+      redirect('/login?error=email&callbackUrl=' + encodeURIComponent(callbackUrl));
+    }
   }
   async function googleSignIn() {
     'use server';
@@ -48,7 +55,11 @@ export default async function LoginPage({
             <p className="mt-1 text-sm text-muted">Pas de mot de passe : on vous envoie un lien.</p>
             {sp.error && (
               <p role="alert" className="mt-4 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
-                La connexion a échoué. Réessayez.
+                {sp.error === 'email' || sp.error === 'Configuration'
+                  ? googleEnabled
+                    ? "L'e-mail de connexion n'a pas pu être envoyé à cette adresse. Utilisez « Continuer avec Google »."
+                    : "L'e-mail de connexion n'a pas pu être envoyé à cette adresse. Demandez à l'administrateur d'Oria d'activer la connexion pour elle."
+                  : 'La connexion a échoué. Réessayez.'}
               </p>
             )}
             <form action={emailSignIn} className="mt-6">
