@@ -17,6 +17,8 @@ const listeners: Array<() => void> = [];
 const emit = () => listeners.forEach((fn) => fn());
 
 window.addEventListener('beforeinstallprompt', (e) => {
+  // Sur PC, Chrome garde son propre bouton d'installation.
+  if (device !== 'mobile') return;
   e.preventDefault();
   deferred = e as InstallEvent;
   emit();
